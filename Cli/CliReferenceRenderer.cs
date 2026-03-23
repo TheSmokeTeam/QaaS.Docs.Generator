@@ -148,6 +148,22 @@ internal sealed class CliReferenceRenderer
                 $"| `{FormatFlag(option.ShortName, option.LongName)}` | {YesNo(option.IsInherited)} | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(option.ValueType)}` | {Escape(option.HelpText ?? string.Empty)} |");
         }
 
+        if (string.Equals(command.Name, "execute", StringComparison.Ordinal))
+        {
+            builder.AppendLine();
+            builder.AppendLine("## Executable File");
+            builder.AppendLine();
+            builder.AppendLine("The `execute` command reads a YAML file that contains the nested QaaS commands to run.");
+            builder.AppendLine();
+            builder.AppendLine("```yaml");
+            builder.AppendLine("Commands:");
+            builder.AppendLine("  - Command:");
+            builder.AppendLine("    Id:");
+            builder.AppendLine("```");
+            builder.AppendLine();
+            builder.AppendLine("Each `Commands` item contains the full QaaS command string and the unique `Id` that the loader uses for filtering and reporting.");
+        }
+
         return builder.ToString().TrimEnd();
     }
 

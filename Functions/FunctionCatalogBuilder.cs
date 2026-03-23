@@ -277,6 +277,9 @@ internal static class FunctionCatalogBuilder
 
 internal sealed class FunctionReferenceRenderer
 {
+    private static readonly string[] RunnerAndMockerGroupOrder = ["Builders", "Commands"];
+    private static readonly string[] FrameworkGroupOrder = ["Builders", "Functions"];
+
     public IReadOnlyList<GeneratedDocument> Render(FunctionCatalog catalog)
     {
         var documents = new List<GeneratedDocument>();
@@ -286,29 +289,33 @@ internal sealed class FunctionReferenceRenderer
             var productEntries = catalog.Entries
                 .Where(entry => string.Equals(entry.Product, product, StringComparison.Ordinal))
                 .ToList();
-            var explicitlyDocumentedEntries = productEntries
-                .Where(entry => entry.HasExplicitPlacement)
+            var renderedEntries = productEntries
+                .Select(entry => new RenderedFunctionEntry(entry, ResolvePlacement(entry)))
                 .ToList();
             var extensionEntries = productEntries
                 .Where(entry => entry.IsExtensionMethod)
+                .ToList();
+            var renderedExplicitEntries = renderedEntries
+                .Where(entry => entry.Entry.HasExplicitPlacement)
                 .ToList();
 
             documents.Add(new GeneratedDocument(
                 GetOverviewOutputPath(product),
                 GeneratedDocumentHasher.WithHeader(
-                    RenderOverviewPage(product, explicitlyDocumentedEntries, extensionEntries),
+                    RenderOverviewPage(product, renderedExplicitEntries, extensionEntries),
                     [product, "functions", "overview"])));
 
-            foreach (var category in explicitlyDocumentedEntries
-                         .GroupBy(entry => new DocsPlacement(entry.Group, entry.Subgroup))
-                         .OrderBy(group => group.Key.Group, StringComparer.Ordinal)
+            foreach (var category in renderedExplicitEntries
+                         .GroupBy(entry => entry.Placement)
+                         .OrderBy(group => GroupOrder(product, group.Key.DisplayGroup))
+                         .ThenBy(group => group.Key.DisplayGroup, StringComparer.Ordinal)
                          .ThenBy(group => group.Key.Subgroup, StringComparer.Ordinal))
             {
                 documents.Add(new GeneratedDocument(
-                    GetCategoryOutputPath(product, category.Key.Group, category.Key.Subgroup),
+                    GetCategoryOutputPath(product, category.Key),
                     GeneratedDocumentHasher.WithHeader(
-                        RenderCategoryPage(product, category.Key, category.ToList()),
-                        [product, "functions", category.Key.Group, category.Key.Subgroup])));
+                        RenderCategoryPage(product, category.Key, category.Select(entry => entry.Entry).ToList()),
+                        [product, "functions", category.Key.DisplayGroup, category.Key.Subgroup])));
             }
 
             documents.Add(new GeneratedDocument(
@@ -323,8 +330,12 @@ internal sealed class FunctionReferenceRenderer
 
     private static string GetOverviewOutputPath(string product) => $"{GetProductRoot(product)}/index.md";
 
-    private static string GetCategoryOutputPath(string product, string group, string subgroup) =>
-        $"{GetProductRoot(product)}/{Slugify(group)}/{Slugify(subgroup)}.md";
+    private static string GetCategoryOutputPath(string product, FunctionPagePlacement placement)
+    {
+        return placement.PathGroup is null
+            ? $"{GetProductRoot(product)}/{Slugify(placement.Subgroup)}.md"
+            : $"{GetProductRoot(product)}/{Slugify(placement.PathGroup)}/{Slugify(placement.Subgroup)}.md";
+    }
 
     private static string GetExtensionOutputPath(string product) => $"{GetProductRoot(product)}/extension-methods.md";
 
@@ -341,7 +352,7 @@ internal sealed class FunctionReferenceRenderer
 
     private static string RenderOverviewPage(
         string product,
-        IReadOnlyList<FunctionEntry> explicitlyDocumentedEntries,
+        IReadOnlyList<RenderedFunctionEntry> explicitlyDocumentedEntries,
         IReadOnlyList<FunctionEntry> extensionEntries)
     {
         var builder = new StringBuilder();
@@ -365,19 +376,20 @@ internal sealed class FunctionReferenceRenderer
         }
 
         foreach (var group in explicitlyDocumentedEntries
-                     .GroupBy(entry => entry.Group, StringComparer.Ordinal)
-                     .OrderBy(group => group.Key, StringComparer.Ordinal))
+                     .GroupBy(entry => entry.Placement.DisplayGroup, StringComparer.Ordinal)
+                     .OrderBy(group => GroupOrder(product, group.Key))
+                     .ThenBy(group => group.Key, StringComparer.Ordinal))
         {
             builder.AppendLine();
             builder.AppendLine($"## {group.Key}");
             builder.AppendLine();
 
             foreach (var subgroup in group
-                         .GroupBy(entry => entry.Subgroup, StringComparer.Ordinal)
-                         .OrderBy(subgroup => subgroup.Key, StringComparer.Ordinal))
+                         .GroupBy(entry => entry.Placement, FunctionPagePlacementComparer.Instance)
+                         .OrderBy(subgroup => subgroup.Key.Subgroup, StringComparer.Ordinal))
             {
                 builder.AppendLine(
-                    $"- [{subgroup.Key}]({GetCategoryRelativeLink(group.Key, subgroup.Key)}) - {CountLabel(subgroup.Count(), "function")}");
+                    $"- [{subgroup.Key.Subgroup}]({GetCategoryRelativeLink(subgroup.Key)}) - {CountLabel(subgroup.Count(), "function")}");
             }
         }
 
@@ -392,14 +404,14 @@ internal sealed class FunctionReferenceRenderer
 
     private static string RenderCategoryPage(
         string product,
-        DocsPlacement category,
+        FunctionPagePlacement category,
         IReadOnlyList<FunctionEntry> entries)
     {
         var builder = new StringBuilder();
         builder.AppendLine($"# {category.Subgroup}");
         builder.AppendLine();
         builder.AppendLine(
-            $"Source-driven reference for `{product}` functions in the `{category.Group} / {category.Subgroup}` category.");
+            $"Source-driven reference for `{product}` functions in the `{category.DisplayGroup} / {category.Subgroup}` category.");
         builder.AppendLine();
         builder.AppendLine("Each entry uses the short function name as the table-of-contents label. Expand an entry to inspect its location, signature, and XML doc comments.");
 
@@ -524,6 +536,71 @@ internal sealed class FunctionReferenceRenderer
         return $"{Slugify(group)}/{Slugify(subgroup)}.md";
     }
 
+    private static string GetCategoryRelativeLink(FunctionPagePlacement placement)
+    {
+        return placement.PathGroup is null
+            ? $"{Slugify(placement.Subgroup)}.md"
+            : GetCategoryRelativeLink(placement.PathGroup, placement.Subgroup);
+    }
+
+    private static int GroupOrder(string product, string group)
+    {
+        var orderedGroups = product switch
+        {
+            "Runner" or "Mocker" => RunnerAndMockerGroupOrder,
+            "Framework" => FrameworkGroupOrder,
+            _ => Array.Empty<string>()
+        };
+
+        var index = Array.FindIndex(orderedGroups, candidate => string.Equals(candidate, group, StringComparison.Ordinal));
+        return index >= 0 ? index : orderedGroups.Length;
+    }
+
+    private static FunctionPagePlacement ResolvePlacement(FunctionEntry entry)
+    {
+        return entry.Product switch
+        {
+            "Runner" => ResolveRunnerPlacement(entry),
+            "Mocker" => ResolveMockerPlacement(entry),
+            "Framework" => ResolveFrameworkPlacement(entry),
+            _ => new FunctionPagePlacement(entry.Group, entry.Group, entry.Subgroup)
+        };
+    }
+
+    private static FunctionPagePlacement ResolveRunnerPlacement(FunctionEntry entry)
+    {
+        return entry.Group switch
+        {
+            "Configuration as Code" => new FunctionPagePlacement("Builders", "Builders", entry.Subgroup),
+            "Getting Started" when string.Equals(entry.Subgroup, "Bootstrap", StringComparison.Ordinal)
+                => new FunctionPagePlacement("Commands", "Commands", entry.Subgroup),
+            "Runtime" when string.Equals(entry.Subgroup, "Runner", StringComparison.Ordinal)
+                => new FunctionPagePlacement("Commands", "Commands", entry.Subgroup),
+            _ => new FunctionPagePlacement(entry.Group, entry.Group, entry.Subgroup)
+        };
+    }
+
+    private static FunctionPagePlacement ResolveMockerPlacement(FunctionEntry entry)
+    {
+        return entry.Group switch
+        {
+            "Configuration as Code" => new FunctionPagePlacement("Builders", "Builders", entry.Subgroup),
+            "Getting Started" when string.Equals(entry.Subgroup, "Bootstrap", StringComparison.Ordinal)
+                => new FunctionPagePlacement("Commands", "Commands", entry.Subgroup),
+            "Runtime" => new FunctionPagePlacement("Commands", "Commands", entry.Subgroup),
+            _ => new FunctionPagePlacement(entry.Group, entry.Group, entry.Subgroup)
+        };
+    }
+
+    private static FunctionPagePlacement ResolveFrameworkPlacement(FunctionEntry entry)
+    {
+        return entry.Subgroup switch
+        {
+            "Data Sources" or "Policies" => new FunctionPagePlacement("Builders", "Builders", entry.Subgroup),
+            _ => new FunctionPagePlacement("Functions", null, entry.Subgroup)
+        };
+    }
+
     private static string Slugify(string value)
     {
         var normalized = Regex.Replace(value.Trim().ToLowerInvariant(), "[^a-z0-9]+", "-");
@@ -533,6 +610,57 @@ internal sealed class FunctionReferenceRenderer
     private static string CountLabel(int count, string singularNoun)
     {
         return count == 1 ? $"1 {singularNoun}" : $"{count} {singularNoun}s";
+    }
+
+    private sealed record RenderedFunctionEntry(FunctionEntry Entry, FunctionPagePlacement Placement);
+
+    private sealed record FunctionPagePlacement(string DisplayGroup, string? PathGroup, string Subgroup) : IComparable<FunctionPagePlacement>
+    {
+        public int CompareTo(FunctionPagePlacement? other)
+        {
+            if (other is null)
+            {
+                return 1;
+            }
+
+            var pathGroupComparison = StringComparer.Ordinal.Compare(PathGroup ?? string.Empty, other.PathGroup ?? string.Empty);
+            if (pathGroupComparison != 0)
+            {
+                return pathGroupComparison;
+            }
+
+            return StringComparer.Ordinal.Compare(Subgroup, other.Subgroup);
+        }
+    }
+
+    private sealed class FunctionPagePlacementComparer : IEqualityComparer<FunctionPagePlacement>
+    {
+        public static readonly FunctionPagePlacementComparer Instance = new();
+
+        public bool Equals(FunctionPagePlacement? x, FunctionPagePlacement? y)
+        {
+            if (ReferenceEquals(x, y))
+            {
+                return true;
+            }
+
+            if (x is null || y is null)
+            {
+                return false;
+            }
+
+            return string.Equals(x.DisplayGroup, y.DisplayGroup, StringComparison.Ordinal) &&
+                   string.Equals(x.PathGroup, y.PathGroup, StringComparison.Ordinal) &&
+                   string.Equals(x.Subgroup, y.Subgroup, StringComparison.Ordinal);
+        }
+
+        public int GetHashCode(FunctionPagePlacement obj)
+        {
+            return HashCode.Combine(
+                StringComparer.Ordinal.GetHashCode(obj.DisplayGroup),
+                obj.PathGroup is null ? 0 : StringComparer.Ordinal.GetHashCode(obj.PathGroup),
+                StringComparer.Ordinal.GetHashCode(obj.Subgroup));
+        }
     }
 }
 
