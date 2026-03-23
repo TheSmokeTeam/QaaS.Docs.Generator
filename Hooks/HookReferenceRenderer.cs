@@ -43,7 +43,13 @@ internal sealed class HookReferenceRenderer
                          .OrderBy(candidate => candidate, StringComparer.Ordinal))
             {
                 var docsSlug = Path.GetFileName(hookDirectory);
+                var overviewPath = Path.Combine(hookDirectory, "overview.md");
                 var summary = await LoadHookSummaryAsync(sourceRoot, docsSlug);
+                if (string.IsNullOrWhiteSpace(summary))
+                {
+                    summary = await LoadExistingOverviewBodyAsync(overviewPath);
+                }
+
                 if (string.IsNullOrWhiteSpace(summary))
                 {
                     throw new InvalidOperationException(
@@ -176,6 +182,60 @@ internal sealed class HookReferenceRenderer
             .Where(path => !IsIgnoredPath(sourceRoot, path))
             .OrderBy(path => path, StringComparer.Ordinal)
             .FirstOrDefault();
+    }
+
+    private static async Task<string?> LoadExistingOverviewBodyAsync(string overviewPath)
+    {
+        if (!File.Exists(overviewPath))
+        {
+            return null;
+        }
+
+        var content = await File.ReadAllTextAsync(overviewPath);
+        var normalized = content
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Trim();
+
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        var lines = normalized.Split('\n').ToList();
+        if (lines.Count == 0)
+        {
+            return null;
+        }
+
+        if (lines[0].StartsWith("# ", StringComparison.Ordinal))
+        {
+            lines.RemoveAt(0);
+        }
+
+        while (lines.Count != 0 && string.IsNullOrWhiteSpace(lines[0]))
+        {
+            lines.RemoveAt(0);
+        }
+
+        while (lines.Count != 0 && string.IsNullOrWhiteSpace(lines[^1]))
+        {
+            lines.RemoveAt(lines.Count - 1);
+        }
+
+        const string generatedOverviewFooter = "_This overview is generated automatically from the hook source summary._";
+        if (lines.Count != 0 && string.Equals(lines[^1], generatedOverviewFooter, StringComparison.Ordinal))
+        {
+            lines.RemoveAt(lines.Count - 1);
+
+            while (lines.Count != 0 && string.IsNullOrWhiteSpace(lines[^1]))
+            {
+                lines.RemoveAt(lines.Count - 1);
+            }
+        }
+
+        return lines.Count == 0
+            ? null
+            : string.Join(GeneratedDocumentLineEndings.Canonical, lines).Trim();
     }
 
     private static bool IsIgnoredPath(string sourceRoot, string filePath)
