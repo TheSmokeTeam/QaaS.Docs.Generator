@@ -99,12 +99,12 @@ internal sealed class CliReferenceRenderer
         builder.AppendLine();
         builder.AppendLine("## Common Flags");
         builder.AppendLine();
-        builder.AppendLine("| Flag | Required | Default | Type | Source Type | Description |");
-        builder.AppendLine("| ---- | -------- | ------- | ---- | ----------- | ----------- |");
+        builder.AppendLine("| Flag | Required | Default | Type | Description |");
+        builder.AppendLine("| ---- | -------- | ------- | ---- | ----------- |");
         foreach (var option in flattenedCommonOptions)
         {
             builder.AppendLine(
-                $"| `{FormatFlag(option.ShortName, option.LongName)}` | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(option.ValueType)}` | `{TypeDisplayFormatter.FormatSourceType(option.SourceOptionType)}` | {Escape(option.HelpText)} |");
+                $"| `{FormatFlag(option.ShortName, option.LongName)}` | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(option.ValueType)}` | {Escape(option.HelpText)} |");
         }
 
         return builder.ToString().TrimEnd();
@@ -140,12 +140,12 @@ internal sealed class CliReferenceRenderer
         builder.AppendLine();
         builder.AppendLine("## Flags");
         builder.AppendLine();
-        builder.AppendLine("| Flag | Property | Source Type | Inherited | Required | Default | Value Type | Description |");
-        builder.AppendLine("| ---- | -------- | ----------- | --------- | -------- | ------- | ---------- | ----------- |");
+        builder.AppendLine("| Flag | Inherited | Required | Default | Value Type | Description |");
+        builder.AppendLine("| ---- | --------- | -------- | ------- | ---------- | ----------- |");
         foreach (var option in command.Options.OrderBy(argument => argument.LongName, StringComparer.Ordinal))
         {
             builder.AppendLine(
-                $"| `{FormatFlag(option.ShortName, option.LongName)}` | `{option.PropertyName}` | `{TypeDisplayFormatter.FormatSourceType(option.SourceOptionType)}` | {YesNo(option.IsInherited)} | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(option.ValueType)}` | {Escape(option.HelpText ?? string.Empty)} |");
+                $"| `{FormatFlag(option.ShortName, option.LongName)}` | {YesNo(option.IsInherited)} | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(option.ValueType)}` | {Escape(option.HelpText ?? string.Empty)} |");
         }
 
         return builder.ToString().TrimEnd();
@@ -181,12 +181,12 @@ internal sealed class CliReferenceRenderer
         builder.AppendLine();
         builder.AppendLine("## Flags");
         builder.AppendLine();
-        builder.AppendLine("| Flag | Property | Source Type | Inherited | Required | Default | Value Type | Description |");
-        builder.AppendLine("| ---- | -------- | ----------- | --------- | -------- | ------- | ---------- | ----------- |");
+        builder.AppendLine("| Flag | Inherited | Required | Default | Value Type | Description |");
+        builder.AppendLine("| ---- | --------- | -------- | ------- | ---------- | ----------- |");
         foreach (var option in command.Options.OrderBy(argument => argument.LongName, StringComparer.Ordinal))
         {
             builder.AppendLine(
-                $"| `{FormatFlag(option.ShortName, option.LongName)}` | `{option.PropertyName}` | `{TypeDisplayFormatter.FormatSourceType(option.SourceOptionType)}` | {YesNo(option.IsInherited)} | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(option.ValueType)}` | {Escape(option.HelpText)} |");
+                $"| `{FormatFlag(option.ShortName, option.LongName)}` | {YesNo(option.IsInherited)} | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(option.ValueType)}` | {Escape(option.HelpText)} |");
         }
 
         return builder.ToString().TrimEnd();
