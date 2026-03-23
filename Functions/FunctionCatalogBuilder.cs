@@ -4,6 +4,7 @@ using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using QaaS.Docs.Generator.Cli;
 
 namespace QaaS.Docs.Generator.Functions;
 
@@ -15,11 +16,16 @@ internal sealed record FunctionEntry(
     string Subgroup,
     string Kind,
     string DisplayName,
+    string ShortName,
+    string OverloadName,
     string Signature,
     string Summary,
     string Remarks,
     string RelativePath,
-    int LineNumber);
+    int LineNumber,
+    string DeclaringType,
+    bool IsExtensionMethod,
+    bool HasExplicitPlacement);
 
 internal sealed record DocsPlacement(string Group, string Subgroup);
 
@@ -51,13 +57,20 @@ internal static class FunctionCatalogBuilder
                              .OrderBy(documentedMember => documentedMember.SpanStart))
                 {
                     var documentation = DocumentationCommentParser.Parse(member);
-                    if (documentation.Placement is null)
+                    var typeDeclaration = member.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+                    if (typeDeclaration is null)
                     {
                         continue;
                     }
 
-                    var typeDeclaration = member.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
-                    if (typeDeclaration is null)
+                    var isExtensionMethod = IsExtensionMethod(member);
+                    if (!ShouldDocumentMember(product, member, documentation, isExtensionMethod))
+                    {
+                        continue;
+                    }
+
+                    var placement = ResolvePlacement(documentation, typeDeclaration, isExtensionMethod);
+                    if (placement is null)
                     {
                         continue;
                     }
@@ -65,17 +78,22 @@ internal static class FunctionCatalogBuilder
                     var lineNumber = member.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
                     entries.Add(new FunctionEntry(
                         product,
-                        documentation.Placement.Group,
-                        documentation.Placement.Subgroup,
+                        placement.Group,
+                        placement.Subgroup,
                         GetMemberKind(member),
                         SignatureFormatter.FormatDisplayName(typeDeclaration, member),
+                        SignatureFormatter.FormatShortName(typeDeclaration, member),
+                        SignatureFormatter.FormatOverloadName(typeDeclaration, member),
                         SignatureFormatter.FormatComplete(member),
                         string.IsNullOrWhiteSpace(documentation.Summary)
                             ? "_No XML summary provided._"
                             : documentation.Summary,
                         documentation.Remarks,
                         Path.GetRelativePath(productRoot, filePath).Replace('\\', '/'),
-                        lineNumber));
+                        lineNumber,
+                        typeDeclaration.Identifier.Text,
+                        isExtensionMethod,
+                        documentation.Placement is not null));
                 }
             }
         }
@@ -120,6 +138,71 @@ internal static class FunctionCatalogBuilder
                !IsInternalLeakingMember(member);
     }
 
+    private static bool ShouldDocumentMember(
+        string product,
+        BaseMethodDeclarationSyntax member,
+        DocumentationComment documentation,
+        bool isExtensionMethod)
+    {
+        if (IsExcludedSerializerMember(product, member))
+        {
+            return false;
+        }
+
+        if (documentation.Placement is not null)
+        {
+            return true;
+        }
+
+        return isExtensionMethod && HasRenderableDocumentation(documentation);
+    }
+
+    private static bool HasRenderableDocumentation(DocumentationComment documentation)
+    {
+        return !string.IsNullOrWhiteSpace(documentation.Summary) ||
+               !string.IsNullOrWhiteSpace(documentation.Remarks);
+    }
+
+    private static bool IsExcludedSerializerMember(string product, BaseMethodDeclarationSyntax member)
+    {
+        if (product is not ("Runner" or "Mocker") || member is not MethodDeclarationSyntax method)
+        {
+            return false;
+        }
+
+        return method.Identifier.Text is "Read" or "Write";
+    }
+
+    private static DocsPlacement? ResolvePlacement(
+        DocumentationComment documentation,
+        TypeDeclarationSyntax typeDeclaration,
+        bool isExtensionMethod)
+    {
+        if (documentation.Placement is not null)
+        {
+            return documentation.Placement;
+        }
+
+        return isExtensionMethod
+            ? new DocsPlacement("Extension Methods", InferExtensionSubgroup(typeDeclaration.Identifier.Text))
+            : null;
+    }
+
+    private static string InferExtensionSubgroup(string typeName)
+    {
+        var trimmedTypeName = typeName;
+        if (trimmedTypeName.EndsWith("Extensions", StringComparison.Ordinal))
+        {
+            trimmedTypeName = trimmedTypeName[..^"Extensions".Length];
+        }
+        else if (trimmedTypeName.EndsWith("Extension", StringComparison.Ordinal))
+        {
+            trimmedTypeName = trimmedTypeName[..^"Extension".Length];
+        }
+
+        return TypeDisplayFormatter.FormatSourceType(trimmedTypeName);
+    }
+
     private static bool IsInternalLeakingMember(BaseMethodDeclarationSyntax member)
     {
         if (member is MethodDeclarationSyntax methodDeclaration &&
@@ -142,6 +225,13 @@ internal static class FunctionCatalogBuilder
             .Where(typeSyntax => typeSyntax is not null)
             .Select(typeSyntax => typeSyntax!.ToString())
             .Any(typeName => typeName.Contains("Internal", StringComparison.Ordinal));
+    }
+
+    private static bool IsExtensionMethod(BaseMethodDeclarationSyntax member)
+    {
+        return member is MethodDeclarationSyntax method &&
+               method.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.StaticKeyword)) &&
+               method.ParameterList.Parameters.FirstOrDefault()?.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.ThisKeyword)) == true;
     }
 
     private static string GetMemberKind(BaseMethodDeclarationSyntax member)
@@ -169,90 +259,268 @@ internal sealed class FunctionReferenceRenderer
 {
     public IReadOnlyList<GeneratedDocument> Render(FunctionCatalog catalog)
     {
-        return FunctionCatalogBuilder.SupportedProducts
-            .Select(product => new GeneratedDocument(
-                GetOutputPath(product),
+        var documents = new List<GeneratedDocument>();
+
+        foreach (var product in FunctionCatalogBuilder.SupportedProducts)
+        {
+            var productEntries = catalog.Entries
+                .Where(entry => string.Equals(entry.Product, product, StringComparison.Ordinal))
+                .ToList();
+            var explicitlyDocumentedEntries = productEntries
+                .Where(entry => entry.HasExplicitPlacement)
+                .ToList();
+            var extensionEntries = productEntries
+                .Where(entry => entry.IsExtensionMethod)
+                .ToList();
+
+            documents.Add(new GeneratedDocument(
+                GetOverviewOutputPath(product),
                 GeneratedDocumentHasher.WithHeader(
-                    RenderProductPage(
-                        product,
-                        catalog.Entries
-                            .Where(entry => string.Equals(entry.Product, product, StringComparison.Ordinal))
-                            .ToList()),
-                    [product, "functions"])))
-            .ToList();
+                    RenderOverviewPage(product, explicitlyDocumentedEntries, extensionEntries),
+                    [product, "functions", "overview"])));
+
+            foreach (var category in explicitlyDocumentedEntries
+                         .GroupBy(entry => new DocsPlacement(entry.Group, entry.Subgroup))
+                         .OrderBy(group => group.Key.Group, StringComparer.Ordinal)
+                         .ThenBy(group => group.Key.Subgroup, StringComparer.Ordinal))
+            {
+                documents.Add(new GeneratedDocument(
+                    GetCategoryOutputPath(product, category.Key.Group, category.Key.Subgroup),
+                    GeneratedDocumentHasher.WithHeader(
+                        RenderCategoryPage(product, category.Key, category.ToList()),
+                        [product, "functions", category.Key.Group, category.Key.Subgroup])));
+            }
+
+            documents.Add(new GeneratedDocument(
+                GetExtensionOutputPath(product),
+                GeneratedDocumentHasher.WithHeader(
+                    RenderExtensionPage(product, extensionEntries),
+                    [product, "functions", "extension-methods"])));
+        }
+
+        return documents;
     }
 
-    private static string GetOutputPath(string product)
+    private static string GetOverviewOutputPath(string product) => $"{GetProductRoot(product)}/index.md";
+
+    private static string GetCategoryOutputPath(string product, string group, string subgroup) =>
+        $"{GetProductRoot(product)}/{Slugify(group)}/{Slugify(subgroup)}.md";
+
+    private static string GetExtensionOutputPath(string product) => $"{GetProductRoot(product)}/extension-methods.md";
+
+    private static string GetProductRoot(string product)
     {
         return product switch
         {
-            "Runner" => "qaas/functions/index.md",
-            "Mocker" => "mocker/functions/index.md",
-            "Framework" => "framework/functions/index.md",
-            _ => $"{product.ToLowerInvariant()}/functions/index.md"
+            "Runner" => "qaas/functions",
+            "Mocker" => "mocker/functions",
+            "Framework" => "framework/functions",
+            _ => $"{product.ToLowerInvariant()}/functions"
         };
     }
 
-    private static string RenderProductPage(string product, IReadOnlyList<FunctionEntry> entries)
+    private static string RenderOverviewPage(
+        string product,
+        IReadOnlyList<FunctionEntry> explicitlyDocumentedEntries,
+        IReadOnlyList<FunctionEntry> extensionEntries)
     {
         var builder = new StringBuilder();
         builder.AppendLine($"# {product} Functions");
         builder.AppendLine();
-        builder.AppendLine("This page is generated from source-level `qaas-docs` annotations and the current source tree.");
+        builder.AppendLine("This overview is generated from source-level `qaas-docs` annotations and the current public extension-method surface.");
+        builder.AppendLine();
+        builder.AppendLine("Each category page keeps the table of contents focused on short function names and collapses the location, signature, and XML doc comments behind each entry.");
+
+        if (product is "Runner" or "Mocker")
+        {
+            builder.AppendLine();
+            builder.AppendLine("Serializer-only `Read` and `Write` members are intentionally omitted from this reference.");
+        }
+
+        if (explicitlyDocumentedEntries.Count == 0 && extensionEntries.Count == 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("No user-facing functions are currently documented for this product.");
+            return builder.ToString().TrimEnd();
+        }
+
+        foreach (var group in explicitlyDocumentedEntries
+                     .GroupBy(entry => entry.Group, StringComparer.Ordinal)
+                     .OrderBy(group => group.Key, StringComparer.Ordinal))
+        {
+            builder.AppendLine();
+            builder.AppendLine($"## {group.Key}");
+            builder.AppendLine();
+
+            foreach (var subgroup in group
+                         .GroupBy(entry => entry.Subgroup, StringComparer.Ordinal)
+                         .OrderBy(subgroup => subgroup.Key, StringComparer.Ordinal))
+            {
+                builder.AppendLine(
+                    $"- [{subgroup.Key}]({GetCategoryRelativeLink(group.Key, subgroup.Key)}) - {CountLabel(subgroup.Count(), "function")}");
+            }
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("## Extension Methods");
+        builder.AppendLine();
+        builder.AppendLine(
+            $"- [Extension Methods](extension-methods.md) - {CountLabel(extensionEntries.Count, "extension method")}");
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string RenderCategoryPage(
+        string product,
+        DocsPlacement category,
+        IReadOnlyList<FunctionEntry> entries)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"# {category.Subgroup}");
+        builder.AppendLine();
+        builder.AppendLine(
+            $"Source-driven reference for `{product}` functions in the `{category.Group} / {category.Subgroup}` category.");
+        builder.AppendLine();
+        builder.AppendLine("Each entry uses the short function name as the table-of-contents label. Expand an entry to inspect its location, signature, and XML doc comments.");
+
+        RenderFunctionSections(builder, entries, headingLevel: 2);
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string RenderExtensionPage(string product, IReadOnlyList<FunctionEntry> entries)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("# Extension Methods");
+        builder.AppendLine();
+        builder.AppendLine($"This page collects public `{product}` extension methods that have XML documentation or explicit docs annotations.");
 
         if (entries.Count == 0)
         {
             builder.AppendLine();
-            builder.AppendLine("No functions are currently annotated for this product.");
+            builder.AppendLine("No user-facing extension methods are currently documented for this product.");
             return builder.ToString().TrimEnd();
         }
 
-        foreach (var group in entries.GroupBy(entry => entry.Group, StringComparer.Ordinal))
-        {
-            builder.AppendLine();
-            builder.AppendLine($"## {group.Key}");
+        builder.AppendLine();
+        builder.AppendLine("Annotated extension methods continue to appear in their regular category pages; this page gives the extension surface a dedicated view.");
 
-            foreach (var subgroup in group.GroupBy(entry => entry.Subgroup, StringComparer.Ordinal))
+        var groups = entries
+            .GroupBy(entry => entry.Group, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .ToList();
+        var collapseTopLevelGroup = groups.Count == 1 &&
+                                    string.Equals(groups[0].Key, "Extension Methods", StringComparison.Ordinal);
+
+        foreach (var group in groups)
+        {
+            if (!collapseTopLevelGroup)
             {
                 builder.AppendLine();
-                builder.AppendLine($"### {subgroup.Key}");
+                builder.AppendLine($"## {group.Key}");
+            }
 
-                foreach (var entry in subgroup)
-                {
-                    builder.AppendLine();
-                    builder.AppendLine("<hr class=\"function-separator\" />");
-                    builder.AppendLine();
-                    builder.AppendLine($"#### `{entry.DisplayName}`");
-                    builder.AppendLine();
-                    builder.AppendLine($"**Location** `{entry.RelativePath}:{entry.LineNumber}`");
-                    builder.AppendLine();
-                    builder.AppendLine("**Complete Signature**");
-                    builder.AppendLine("```csharp");
-                    builder.AppendLine(entry.Signature);
-                    builder.AppendLine("```");
-                    builder.AppendLine();
-                    builder.AppendLine("**Docstring**");
-                    builder.AppendLine();
-                    AppendMarkdownBlock(builder, entry.Summary);
-
-                    if (!string.IsNullOrWhiteSpace(entry.Remarks))
-                    {
-                        builder.AppendLine();
-                        AppendMarkdownBlock(builder, entry.Remarks);
-                    }
-                }
+            foreach (var subgroup in group
+                         .GroupBy(entry => entry.Subgroup, StringComparer.Ordinal)
+                         .OrderBy(subgroup => subgroup.Key, StringComparer.Ordinal))
+            {
+                builder.AppendLine();
+                builder.AppendLine($"{new string('#', collapseTopLevelGroup ? 2 : 3)} {subgroup.Key}");
+                RenderFunctionSections(builder, subgroup.ToList(), headingLevel: collapseTopLevelGroup ? 3 : 4);
             }
         }
 
         return builder.ToString().TrimEnd();
     }
 
-    private static void AppendMarkdownBlock(StringBuilder builder, string text)
+    private static void RenderFunctionSections(StringBuilder builder, IReadOnlyList<FunctionEntry> entries, int headingLevel)
     {
+        var headingLabels = BuildHeadingLabels(entries);
+        var headingPrefix = new string('#', headingLevel);
+
+        foreach (var entry in entries)
+        {
+            builder.AppendLine();
+            builder.AppendLine($"{headingPrefix} `{headingLabels[entry]}`");
+            builder.AppendLine();
+            builder.AppendLine("??? info \"Location, signature, and docstring\"");
+            AppendIndentedLine(builder, "**Member**");
+            AppendIndentedLine(builder, $"`{entry.DisplayName}`");
+            AppendIndentedLine(builder);
+            AppendIndentedLine(builder, $"**Kind** `{entry.Kind}`");
+            AppendIndentedLine(builder);
+            AppendIndentedLine(builder, $"**Declaring Type** `{GetDeclaringTypeLabel(entry)}`");
+            AppendIndentedLine(builder);
+            AppendIndentedLine(builder, $"**Location** `{entry.RelativePath}:{entry.LineNumber}`");
+            AppendIndentedLine(builder);
+            AppendIndentedLine(builder, "**Signature**");
+            AppendIndentedLine(builder, "```csharp");
+            AppendIndentedLine(builder, entry.Signature);
+            AppendIndentedLine(builder, "```");
+            AppendIndentedLine(builder);
+            AppendIndentedLine(builder, "**Docstring**");
+            AppendIndentedLine(builder);
+            AppendIndentedMarkdownBlock(builder, entry.Summary, 4);
+
+            if (!string.IsNullOrWhiteSpace(entry.Remarks))
+            {
+                AppendIndentedLine(builder);
+                AppendIndentedMarkdownBlock(builder, entry.Remarks, 4);
+            }
+        }
+    }
+
+    private static IReadOnlyDictionary<FunctionEntry, string> BuildHeadingLabels(IReadOnlyList<FunctionEntry> entries)
+    {
+        var duplicatedShortNames = entries
+            .GroupBy(entry => entry.ShortName, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToHashSet(StringComparer.Ordinal);
+
+        return entries.ToDictionary(
+            entry => entry,
+            entry => duplicatedShortNames.Contains(entry.ShortName)
+                ? entry.OverloadName
+                : entry.ShortName);
+    }
+
+    private static string GetDeclaringTypeLabel(FunctionEntry entry)
+    {
+        return entry.IsExtensionMethod
+            ? $"{entry.DeclaringType} (extension type)"
+            : entry.DeclaringType;
+    }
+
+    private static void AppendIndentedMarkdownBlock(StringBuilder builder, string text, int indentation)
+    {
+        var indent = new string(' ', indentation);
         foreach (var line in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
         {
-            builder.AppendLine(line);
+            builder.AppendLine(string.IsNullOrEmpty(line) ? indent : indent + line);
         }
+    }
+
+    private static void AppendIndentedLine(StringBuilder builder, string text = "", int indentation = 4)
+    {
+        var indent = new string(' ', indentation);
+        builder.AppendLine(text.Length == 0 ? indent : indent + text);
+    }
+
+    private static string GetCategoryRelativeLink(string group, string subgroup)
+    {
+        return $"{Slugify(group)}/{Slugify(subgroup)}.md";
+    }
+
+    private static string Slugify(string value)
+    {
+        var normalized = Regex.Replace(value.Trim().ToLowerInvariant(), "[^a-z0-9]+", "-");
+        return normalized.Trim('-');
+    }
+
+    private static string CountLabel(int count, string singularNoun)
+    {
+        return count == 1 ? $"1 {singularNoun}" : $"{count} {singularNoun}s";
     }
 }
 
@@ -446,6 +714,28 @@ internal static class SignatureFormatter
         };
     }
 
+    public static string FormatShortName(TypeDeclarationSyntax typeDeclaration, BaseMethodDeclarationSyntax member)
+    {
+        return member switch
+        {
+            MethodDeclarationSyntax method => $"{method.Identifier.Text}{method.TypeParameterList}",
+            ConstructorDeclarationSyntax => typeDeclaration.Identifier.Text,
+            _ => throw new InvalidOperationException($"Unsupported member type '{member.GetType().Name}' for function short name rendering.")
+        };
+    }
+
+    public static string FormatOverloadName(TypeDeclarationSyntax typeDeclaration, BaseMethodDeclarationSyntax member)
+    {
+        var parameters = string.Join(", ", member.ParameterList.Parameters.Select(FormatParameterType));
+
+        return member switch
+        {
+            MethodDeclarationSyntax method => $"{method.Identifier.Text}{method.TypeParameterList}({parameters})",
+            ConstructorDeclarationSyntax => $"{typeDeclaration.Identifier.Text}({parameters})",
+            _ => throw new InvalidOperationException($"Unsupported member type '{member.GetType().Name}' for overload heading rendering.")
+        };
+    }
+
     public static string FormatComplete(BaseMethodDeclarationSyntax member)
     {
         return member switch
@@ -462,6 +752,13 @@ internal static class SignatureFormatter
                     .WithSemicolonToken(default)),
             _ => throw new InvalidOperationException($"Unsupported member type '{member.GetType().Name}' for function signature rendering.")
         };
+    }
+
+    private static string FormatParameterType(ParameterSyntax parameter)
+    {
+        var modifiers = string.Join(" ", parameter.Modifiers.Select(modifier => modifier.Text));
+        var type = parameter.Type?.ToString() ?? "object";
+        return string.IsNullOrWhiteSpace(modifiers) ? type : $"{modifiers} {type}";
     }
 
     private static string NormalizeSignature(MemberDeclarationSyntax member)
