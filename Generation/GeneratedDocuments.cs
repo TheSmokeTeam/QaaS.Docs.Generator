@@ -5,6 +5,19 @@ namespace QaaS.Docs.Generator;
 
 internal sealed record GeneratedDocument(string RelativePath, string Content);
 
+internal static class GeneratedDocumentLineEndings
+{
+    public const string Canonical = "\r\n";
+
+    public static string Normalize(string content)
+    {
+        return content
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace("\r", "\n", StringComparison.Ordinal)
+            .Replace("\n", Canonical, StringComparison.Ordinal);
+    }
+}
+
 internal sealed class GeneratedDocumentWriter
 {
     private readonly string _docsRoot;
@@ -26,9 +39,12 @@ internal sealed class GeneratedDocumentWriter
 
         foreach (var document in documents)
         {
-            var normalizedContent = document.Content.EndsWith(Environment.NewLine, StringComparison.Ordinal)
-                ? document.Content
-                : document.Content + Environment.NewLine;
+            var normalizedContent = GeneratedDocumentLineEndings.Normalize(document.Content);
+            if (!normalizedContent.EndsWith(GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+            {
+                normalizedContent += GeneratedDocumentLineEndings.Canonical;
+            }
+
             var fullPath = Path.Combine(_docsRoot, "docs", document.RelativePath.Replace('/', Path.DirectorySeparatorChar));
 
             if (_dryRun)
@@ -39,7 +55,7 @@ internal sealed class GeneratedDocumentWriter
                     continue;
                 }
 
-                var current = File.ReadAllText(fullPath);
+                var current = GeneratedDocumentLineEndings.Normalize(File.ReadAllText(fullPath));
                 if (!string.Equals(current, normalizedContent, StringComparison.Ordinal))
                 {
                     failures.Add($"Generated file is out of date: {fullPath}");
@@ -60,13 +76,14 @@ internal static class GeneratedDocumentHasher
 {
     public static string Hash(string content)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(content));
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(GeneratedDocumentLineEndings.Normalize(content)));
         return Convert.ToHexString(bytes).ToLowerInvariant()[..12];
     }
 
     public static string WithHeader(string body, params IEnumerable<string> sources)
     {
-        var hash = Hash(body);
-        return $"<!-- generated hash:{hash} sources:{string.Join(", ", sources)} -->{Environment.NewLine}{Environment.NewLine}{body}";
+        var normalizedBody = GeneratedDocumentLineEndings.Normalize(body);
+        var hash = Hash(normalizedBody);
+        return $"<!-- generated hash:{hash} sources:{string.Join(", ", sources)} -->{GeneratedDocumentLineEndings.Canonical}{GeneratedDocumentLineEndings.Canonical}{normalizedBody}";
     }
 }
