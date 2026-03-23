@@ -257,18 +257,53 @@ internal sealed class ConfigurationReferenceRenderer
         {
             if (schema.Enumeration.Count != 0)
             {
-                return $"enum [{string.Join(" / ", schema.Enumeration.Select(value => value?.ToString() ?? "null"))}]";
+                return $"one of [{string.Join(" / ", schema.Enumeration.Select(value => value?.ToString() ?? "null"))}]";
             }
 
             if (schema.Type == JsonObjectType.None && schema.AnyOf.Count != 0)
             {
-                return "anyOf";
+                var anyOfTypes = schema.AnyOf
+                    .SelectMany(GetTypeNames)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+                return anyOfTypes.Count != 0
+                    ? JoinFriendlyTypes(anyOfTypes)
+                    : "one of multiple supported shapes";
             }
 
-            var normalized = schema.Type.ToString()
+            var normalized = GetTypeNames(schema).ToList();
+            return normalized.Count != 0 ? JoinFriendlyTypes(normalized) : "object";
+        }
+
+        private static IEnumerable<string> GetTypeNames(JsonSchema schema)
+        {
+            return schema.Type.ToString()
                 .Split(", ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(type => !string.Equals(type, nameof(JsonObjectType.None), StringComparison.Ordinal));
-            return normalized.Any() ? string.Join(" | ", normalized) : "object";
+                .Where(type => !string.Equals(type, nameof(JsonObjectType.None), StringComparison.Ordinal))
+                .Select(ToFriendlyTypeName)
+                .OrderBy(type => string.Equals(type, "null", StringComparison.Ordinal) ? 1 : 0)
+                .ThenBy(type => type, StringComparer.Ordinal);
+        }
+
+        private static string ToFriendlyTypeName(string typeName)
+        {
+            return typeName.ToLowerInvariant() switch
+            {
+                "array" => "list",
+                "boolean" => "true/false",
+                "file" => "file",
+                "integer" => "integer",
+                "null" => "null",
+                "number" => "number",
+                "object" => "object",
+                "string" => "string",
+                _ => typeName
+            };
+        }
+
+        private static string JoinFriendlyTypes(IReadOnlyList<string> typeNames)
+        {
+            return string.Join(" or ", typeNames);
         }
 
         private static bool TryGetItemSchema(JsonSchema schema, out JsonSchema itemSchema)
