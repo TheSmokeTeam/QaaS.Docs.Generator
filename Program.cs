@@ -1,5 +1,6 @@
 using QaaS.Docs.Generator.Cli;
 using QaaS.Docs.Generator.Functions;
+using QaaS.Docs.Generator.Hooks;
 using QaaS.Docs.Generator.Schema;
 
 namespace QaaS.Docs.Generator;
@@ -39,6 +40,7 @@ internal static class Program
             documents.AddRange(new CliReferenceRenderer().RenderMocker(mockerCliCatalog));
             documents.AddRange(new ConfigurationReferenceRenderer().RenderRunner(runnerSchemaDocs));
             documents.AddRange(new ConfigurationReferenceRenderer().RenderMocker(mockerSchemaDocs));
+            documents.AddRange(await new HookOverviewRenderer().RenderAsync(options.DocsRoot, options.MirrorRoot));
             documents.AddRange(new FunctionReferenceRenderer().Render(functionCatalog));
 
             var failures = writer.Write(documents);
