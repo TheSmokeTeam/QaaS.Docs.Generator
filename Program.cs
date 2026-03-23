@@ -26,7 +26,6 @@ internal static class Program
             var mockerCliCatalog = await MockerCliCatalog.LoadAsync(Path.Combine(toolRoot, "Snapshots", "mocker-cli.json"));
 
             var functionCatalog = await FunctionCatalogBuilder.BuildAsync(
-                Path.Combine(toolRoot, "Functions", "function-manifest.json"),
                 options.RunnerRoot,
                 options.MockerRoot,
                 options.FrameworkRoot);

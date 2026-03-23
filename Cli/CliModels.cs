@@ -10,7 +10,9 @@ internal sealed record RunnerCliCatalog(
     {
         await using var stream = File.OpenRead(path);
         var catalog = await JsonSerializer.DeserializeAsync<RunnerCliCatalog>(stream, JsonDefaults.Options);
-        return catalog ?? throw new InvalidOperationException($"Could not deserialize Runner CLI catalog from {path}.");
+        return CliCatalogValidator.Validate(
+            catalog ?? throw new InvalidOperationException($"Could not deserialize Runner CLI catalog from {path}."),
+            path);
     }
 }
 
@@ -44,7 +46,9 @@ internal sealed record MockerCliCatalog(
     {
         await using var stream = File.OpenRead(path);
         var catalog = await JsonSerializer.DeserializeAsync<MockerCliCatalog>(stream, JsonDefaults.Options);
-        return catalog ?? throw new InvalidOperationException($"Could not deserialize Mocker CLI catalog from {path}.");
+        return CliCatalogValidator.Validate(
+            catalog ?? throw new InvalidOperationException($"Could not deserialize Mocker CLI catalog from {path}."),
+            path);
     }
 }
 

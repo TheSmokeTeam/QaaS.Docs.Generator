@@ -7,22 +7,22 @@ This repository is consumed by [`qaas-docs`](https://github.com/TheSmokeTeam/qaa
 It consumes three kinds of inputs:
 
 1. Mirror-owned schema contracts from `QaaS.PackageMirror`
-2. Committed CLI snapshots stored under `Snapshots/`
-3. A committed function manifest stored under `Functions/function-manifest.json`
+2. CLI snapshots captured into `Snapshots/` from the current Runner, Mocker, and Framework worktrees
+3. Source-level XML documentation and `qaas-docs` placement tags in `QaaS.Runner`, `QaaS.Mocker`, and `QaaS.Framework`
 
 It writes the generated markdown into the stable `docs/` paths already used by `mkdocs.yml`.
 
 ## Why the inputs are split this way
 
 - Schema structure belongs in `QaaS.PackageMirror`, because that repo already owns family schema generation.
-- CLI snapshots are committed here on purpose so `QaaS.Runner` and `QaaS.Mocker` do not need any docs-only export code.
-- The function manifest is committed here so grouping and inclusion rules can change without touching the source repos.
+- CLI snapshots are committed here on purpose so the docs build has deterministic inputs, but they are refreshed automatically by `qaas-docs/scripts/Generate-ReferenceDocs.ps1`.
+- Function grouping lives in the source repos so each documented public method carries its own docstring and docs placement metadata.
 
 ## Refresh process
 
 1. Regenerate mirror artifacts in `QaaS.PackageMirror`.
-2. Refresh the committed CLI snapshot files manually only when the live CLI help or option surface changes.
-3. Update `Functions/function-manifest.json` only when the curated user-facing API surface changes.
+2. Refresh the committed CLI snapshot files from `qaas-docs/scripts/Generate-ReferenceDocs.ps1` or `qaas-docs/scripts/Refresh-CliSnapshots.ps1`.
+3. Update the annotated public methods in `QaaS.Runner`, `QaaS.Mocker`, and `QaaS.Framework` when the curated user-facing API surface changes.
 4. From `qaas-docs`, run `scripts/Generate-ReferenceDocs.ps1`.
 5. From `qaas-docs`, run the same script with `-Check -BuildSite` before opening a PR.
 
@@ -38,7 +38,7 @@ The CLI snapshots are intentionally committed artifacts.
 
 - Generated files are checked for drift by hash.
 - The generator intentionally does not depend on committed docs exporters inside `QaaS.Runner` or `QaaS.Mocker`.
-- Functions are discovered from the current source tree but included only when listed in the manifest.
+- Functions are discovered from the current source tree but included only when a public method carries a `qaas-docs` placement tag in its XML documentation comment.
 
 ## Repository-local verification
 

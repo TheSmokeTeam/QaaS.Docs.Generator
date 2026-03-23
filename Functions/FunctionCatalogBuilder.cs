@@ -1,11 +1,9 @@
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using QaaS.Docs.Generator.Cli;
 
 namespace QaaS.Docs.Generator.Functions;
 
@@ -15,74 +13,63 @@ internal sealed record FunctionEntry(
     string Product,
     string Group,
     string Subgroup,
-    int Order,
     string Kind,
+    string DisplayName,
     string Signature,
     string Summary,
     string Remarks,
     string RelativePath,
     int LineNumber);
 
-internal sealed record FunctionManifest(IReadOnlyList<FunctionManifestProduct> Products);
+internal sealed record DocsPlacement(string Group, string Subgroup);
 
-internal sealed record FunctionManifestProduct(string Product, IReadOnlyList<FunctionManifestType> Types);
-
-internal sealed record FunctionManifestType(string File, string TypeName, string Group, string Subgroup);
+internal sealed record DocumentationComment(string Summary, string Remarks, DocsPlacement? Placement);
 
 internal static class FunctionCatalogBuilder
 {
     internal static readonly string[] SupportedProducts = ["Runner", "Mocker", "Framework"];
 
     public static async Task<FunctionCatalog> BuildAsync(
-        string manifestPath,
         string runnerRoot,
         string mockerRoot,
         string frameworkRoot)
     {
-        var manifest = await LoadManifestAsync(manifestPath);
         var entries = new List<FunctionEntry>();
 
-        foreach (var product in manifest.Products)
+        foreach (var product in SupportedProducts)
         {
-            var productRoot = ResolveProductRoot(product.Product, runnerRoot, mockerRoot, frameworkRoot);
-            foreach (var type in product.Types)
+            var productRoot = ResolveProductRoot(product, runnerRoot, mockerRoot, frameworkRoot);
+            foreach (var filePath in EnumerateSourceFiles(productRoot))
             {
-                var filePath = Path.Combine(productRoot, type.File.Replace('/', Path.DirectorySeparatorChar));
-                if (!File.Exists(filePath))
-                {
-                    throw new FileNotFoundException(
-                        $"Function manifest entry points to a missing file: {filePath}",
-                        filePath);
-                }
-
                 var text = await File.ReadAllTextAsync(filePath);
                 var tree = CSharpSyntaxTree.ParseText(text, path: filePath);
                 var root = await tree.GetRootAsync();
-                var typeDeclaration = root.DescendantNodes()
-                    .OfType<TypeDeclarationSyntax>()
-                    .FirstOrDefault(candidate =>
-                        string.Equals(candidate.Identifier.Text, type.TypeName, StringComparison.Ordinal));
 
-                if (typeDeclaration is null)
+                foreach (var member in root.DescendantNodes()
+                             .OfType<BaseMethodDeclarationSyntax>()
+                             .Where(IsUserFacingMember)
+                             .OrderBy(documentedMember => documentedMember.SpanStart))
                 {
-                    throw new InvalidOperationException(
-                        $"Could not find type '{type.TypeName}' in '{filePath}'.");
-                }
+                    var documentation = DocumentationCommentParser.Parse(member);
+                    if (documentation.Placement is null)
+                    {
+                        continue;
+                    }
 
-                var order = 0;
-                foreach (var method in typeDeclaration.Members.OfType<MethodDeclarationSyntax>()
-                             .Where(IsUserFacingMethod)
-                             .OrderBy(method => method.SpanStart))
-                {
-                    var documentation = DocumentationCommentParser.Parse(method);
-                    var lineNumber = method.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                    var typeDeclaration = member.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+                    if (typeDeclaration is null)
+                    {
+                        continue;
+                    }
+
+                    var lineNumber = member.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
                     entries.Add(new FunctionEntry(
-                        product.Product,
-                        type.Group,
-                        type.Subgroup,
-                        order++,
-                        "function",
-                        SignatureFormatter.Format(typeDeclaration, method),
+                        product,
+                        documentation.Placement.Group,
+                        documentation.Placement.Subgroup,
+                        GetMemberKind(member),
+                        SignatureFormatter.FormatDisplayName(typeDeclaration, member),
+                        SignatureFormatter.FormatComplete(member),
                         string.IsNullOrWhiteSpace(documentation.Summary)
                             ? "_No XML summary provided._"
                             : documentation.Summary,
@@ -97,14 +84,44 @@ internal static class FunctionCatalogBuilder
             .OrderBy(entry => entry.Product, StringComparer.Ordinal)
             .ThenBy(entry => entry.Group, StringComparer.Ordinal)
             .ThenBy(entry => entry.Subgroup, StringComparer.Ordinal)
-            .ThenBy(entry => entry.Order)
+            .ThenBy(entry => entry.RelativePath, StringComparer.Ordinal)
+            .ThenBy(entry => entry.LineNumber)
             .ThenBy(entry => entry.Signature, StringComparer.Ordinal)
             .ToList());
     }
 
-    private static bool IsUserFacingMethod(MethodDeclarationSyntax method)
+    private static IEnumerable<string> EnumerateSourceFiles(string productRoot)
     {
-        return method.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PublicKeyword));
+        return Directory.EnumerateFiles(productRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !IsIgnoredPath(productRoot, path))
+            .OrderBy(path => path, StringComparer.Ordinal);
+    }
+
+    private static bool IsIgnoredPath(string productRoot, string path)
+    {
+        var relativePath = Path.GetRelativePath(productRoot, path);
+        var segments = relativePath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        return segments.Any(segment => string.Equals(segment, "bin", StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(segment, "obj", StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(segment, "TestResults", StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(segment, "site", StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(segment, "_isolated", StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(segment, "_tmp", StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(segment, ".git", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsUserFacingMember(BaseMethodDeclarationSyntax member)
+    {
+        return member is MethodDeclarationSyntax or ConstructorDeclarationSyntax &&
+               member.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PublicKeyword));
+    }
+
+    private static string GetMemberKind(BaseMethodDeclarationSyntax member)
+    {
+        return member is ConstructorDeclarationSyntax ? "constructor" : "function";
     }
 
     private static string ResolveProductRoot(
@@ -118,16 +135,8 @@ internal static class FunctionCatalogBuilder
             "Runner" => runnerRoot,
             "Mocker" => mockerRoot,
             "Framework" => frameworkRoot,
-            _ => throw new InvalidOperationException($"Unsupported function manifest product '{product}'.")
+            _ => throw new InvalidOperationException($"Unsupported function documentation product '{product}'.")
         };
-    }
-
-    private static async Task<FunctionManifest> LoadManifestAsync(string manifestPath)
-    {
-        await using var stream = File.OpenRead(manifestPath);
-        var manifest = await JsonSerializer.DeserializeAsync<FunctionManifest>(stream, JsonDefaults.Options);
-        return manifest ?? throw new InvalidOperationException(
-            $"Could not deserialize function manifest from {manifestPath}.");
     }
 }
 
@@ -164,12 +173,12 @@ internal sealed class FunctionReferenceRenderer
         var builder = new StringBuilder();
         builder.AppendLine($"# {product} Functions");
         builder.AppendLine();
-        builder.AppendLine("This page is generated from the docs generator function manifest and the current source tree.");
+        builder.AppendLine("This page is generated from source-level `qaas-docs` annotations and the current source tree.");
 
         if (entries.Count == 0)
         {
             builder.AppendLine();
-            builder.AppendLine("No functions are currently configured for this product.");
+            builder.AppendLine("No functions are currently annotated for this product.");
             return builder.ToString().TrimEnd();
         }
 
@@ -186,16 +195,25 @@ internal sealed class FunctionReferenceRenderer
                 foreach (var entry in subgroup)
                 {
                     builder.AppendLine();
-                    builder.AppendLine($"#### `{entry.Signature}`");
+                    builder.AppendLine("<hr class=\"function-separator\" />");
                     builder.AppendLine();
-                    builder.AppendLine($"- Kind: `{entry.Kind}`");
-                    builder.AppendLine($"- Location: `{entry.RelativePath}:{entry.LineNumber}`");
+                    builder.AppendLine($"#### `{entry.DisplayName}`");
                     builder.AppendLine();
-                    builder.AppendLine(entry.Summary);
+                    builder.AppendLine($"**Location** `{entry.RelativePath}:{entry.LineNumber}`");
+                    builder.AppendLine();
+                    builder.AppendLine("**Complete Signature**");
+                    builder.AppendLine("```csharp");
+                    builder.AppendLine(entry.Signature);
+                    builder.AppendLine("```");
+                    builder.AppendLine();
+                    builder.AppendLine("**Docstring**");
+                    builder.AppendLine();
+                    AppendMarkdownBlock(builder, entry.Summary);
+
                     if (!string.IsNullOrWhiteSpace(entry.Remarks))
                     {
                         builder.AppendLine();
-                        builder.AppendLine(entry.Remarks);
+                        AppendMarkdownBlock(builder, entry.Remarks);
                     }
                 }
             }
@@ -203,9 +221,15 @@ internal sealed class FunctionReferenceRenderer
 
         return builder.ToString().TrimEnd();
     }
-}
 
-internal sealed record DocumentationComment(string Summary, string Remarks);
+    private static void AppendMarkdownBlock(StringBuilder builder, string text)
+    {
+        foreach (var line in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            builder.AppendLine(line);
+        }
+    }
+}
 
 internal static class DocumentationCommentParser
 {
@@ -214,12 +238,20 @@ internal static class DocumentationCommentParser
         var xml = ParseXml(member);
         if (xml is null)
         {
-            return new DocumentationComment(string.Empty, string.Empty);
+            return new DocumentationComment(string.Empty, string.Empty, null);
         }
 
+        var placementElement = xml.Descendants("qaas-docs").FirstOrDefault();
+        var group = NormalizeAttribute(placementElement?.Attribute("group")?.Value);
+        var subgroup = NormalizeAttribute(placementElement?.Attribute("subgroup")?.Value);
+        var placement = !string.IsNullOrWhiteSpace(group) && !string.IsNullOrWhiteSpace(subgroup)
+            ? new DocsPlacement(group, subgroup)
+            : null;
+
         return new DocumentationComment(
-            Flatten(xml.Descendants("summary").FirstOrDefault()),
-            Flatten(xml.Descendants("remarks").FirstOrDefault()));
+            RenderBlock(xml.Descendants("summary").FirstOrDefault()),
+            RenderBlock(xml.Descendants("remarks").FirstOrDefault()),
+            placement);
     }
 
     public static XDocument? ParseXml(MemberDeclarationSyntax member)
@@ -244,15 +276,54 @@ internal static class DocumentationCommentParser
         }
     }
 
-    private static string Flatten(XElement? element)
+    private static string RenderBlock(XElement? element)
     {
         if (element is null)
         {
             return string.Empty;
         }
 
-        var text = string.Join(" ", element
-            .Nodes()
+        var paragraphs = ExtractParagraphs(element)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToList();
+
+        return string.Join(
+            Environment.NewLine + Environment.NewLine,
+            paragraphs);
+    }
+
+    private static IEnumerable<string> ExtractParagraphs(XElement element)
+    {
+        var paragraphElements = element.Elements()
+            .Where(child => child.Name.LocalName == "para")
+            .ToList();
+        if (paragraphElements.Count == 0)
+        {
+            yield return FlattenNodes(element.Nodes());
+            yield break;
+        }
+
+        var leadingNodes = element.Nodes()
+            .Where(node => node is not XElement child || child.Name.LocalName != "para");
+        var leadingParagraph = FlattenNodes(leadingNodes);
+        if (!string.IsNullOrWhiteSpace(leadingParagraph))
+        {
+            yield return leadingParagraph;
+        }
+
+        foreach (var paragraph in paragraphElements)
+        {
+            var text = FlattenNodes(paragraph.Nodes());
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                yield return text;
+            }
+        }
+    }
+
+    private static string FlattenNodes(IEnumerable<XNode> nodes)
+    {
+        var text = string.Join(" ", nodes
             .SelectMany(FlattenNode)
             .Where(value => !string.IsNullOrWhiteSpace(value)));
 
@@ -319,6 +390,13 @@ internal static class DocumentationCommentParser
                 .Select(line => Regex.Replace(line, "^\\s*///\\s?", string.Empty)));
     }
 
+    private static string NormalizeAttribute(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : Regex.Replace(value, "\\s+", " ").Trim();
+    }
+
     private static string SimplifyReference(string reference)
     {
         var trimmed = reference.Length > 2 && reference[1] == ':'
@@ -331,10 +409,46 @@ internal static class DocumentationCommentParser
 
 internal static class SignatureFormatter
 {
-    public static string Format(TypeDeclarationSyntax typeDeclaration, MethodDeclarationSyntax method)
+    public static string FormatDisplayName(TypeDeclarationSyntax typeDeclaration, BaseMethodDeclarationSyntax member)
     {
-        var parameters = string.Join(", ", method.ParameterList.Parameters.Select(parameter => parameter.ToString()));
-        var genericParameters = method.TypeParameterList?.ToString() ?? string.Empty;
-        return $"{typeDeclaration.Identifier.Text}.{method.Identifier.Text}{genericParameters}({parameters}) : {method.ReturnType}";
+        var parameters = string.Join(", ", member.ParameterList.Parameters.Select(parameter => parameter.ToString()));
+
+        return member switch
+        {
+            MethodDeclarationSyntax method => $"{typeDeclaration.Identifier.Text}.{method.Identifier.Text}{method.TypeParameterList}({parameters})",
+            ConstructorDeclarationSyntax => $"{typeDeclaration.Identifier.Text}({parameters})",
+            _ => throw new InvalidOperationException($"Unsupported member type '{member.GetType().Name}' for function display name rendering.")
+        };
+    }
+
+    public static string FormatComplete(BaseMethodDeclarationSyntax member)
+    {
+        return member switch
+        {
+            MethodDeclarationSyntax method => NormalizeSignature(
+                method
+                    .WithBody(null)
+                    .WithExpressionBody(null)
+                    .WithSemicolonToken(default)),
+            ConstructorDeclarationSyntax constructor => NormalizeSignature(
+                constructor
+                    .WithBody(null)
+                    .WithExpressionBody(null)
+                    .WithSemicolonToken(default)),
+            _ => throw new InvalidOperationException($"Unsupported member type '{member.GetType().Name}' for function signature rendering.")
+        };
+    }
+
+    private static string NormalizeSignature(MemberDeclarationSyntax member)
+    {
+        return Regex.Replace(
+                member
+                    .WithoutLeadingTrivia()
+                    .WithoutTrailingTrivia()
+                    .NormalizeWhitespace()
+                    .ToFullString(),
+                "\\s+",
+                " ")
+            .Trim();
     }
 }
