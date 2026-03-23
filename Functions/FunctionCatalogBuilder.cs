@@ -116,7 +116,32 @@ internal static class FunctionCatalogBuilder
     private static bool IsUserFacingMember(BaseMethodDeclarationSyntax member)
     {
         return member is MethodDeclarationSyntax or ConstructorDeclarationSyntax &&
-               member.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PublicKeyword));
+               member.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PublicKeyword)) &&
+               !IsInternalLeakingMember(member);
+    }
+
+    private static bool IsInternalLeakingMember(BaseMethodDeclarationSyntax member)
+    {
+        if (member is MethodDeclarationSyntax methodDeclaration &&
+            methodDeclaration.Identifier.Text.Contains("Internal", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var typeNames = member switch
+        {
+            MethodDeclarationSyntax methodWithTypes => methodWithTypes.ParameterList.Parameters
+                .Select(parameter => parameter.Type)
+                .Prepend(methodWithTypes.ReturnType),
+            ConstructorDeclarationSyntax constructorWithTypes => constructorWithTypes.ParameterList.Parameters
+                .Select(parameter => parameter.Type),
+            _ => Enumerable.Empty<TypeSyntax>()
+        };
+
+        return typeNames
+            .Where(typeSyntax => typeSyntax is not null)
+            .Select(typeSyntax => typeSyntax!.ToString())
+            .Any(typeName => typeName.Contains("Internal", StringComparison.Ordinal));
     }
 
     private static string GetMemberKind(BaseMethodDeclarationSyntax member)

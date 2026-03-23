@@ -99,12 +99,12 @@ internal sealed class CliReferenceRenderer
         builder.AppendLine();
         builder.AppendLine("## Common Flags");
         builder.AppendLine();
-        builder.AppendLine("| Flag | Required | Default | Type | Description |");
-        builder.AppendLine("| ---- | -------- | ------- | ---- | ----------- |");
+        builder.AppendLine("| Flag | Required | Default | Type | Source Type | Description |");
+        builder.AppendLine("| ---- | -------- | ------- | ---- | ----------- | ----------- |");
         foreach (var option in flattenedCommonOptions)
         {
             builder.AppendLine(
-                $"| `{FormatFlag(option.ShortName, option.LongName)}` | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{option.ValueType}` | {Escape(option.HelpText)} |");
+                $"| `{FormatFlag(option.ShortName, option.LongName)}` | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(option.ValueType)}` | `{TypeDisplayFormatter.FormatSourceType(option.SourceOptionType)}` | {Escape(option.HelpText)} |");
         }
 
         return builder.ToString().TrimEnd();
@@ -133,7 +133,7 @@ internal sealed class CliReferenceRenderer
             foreach (var positional in command.Positionals.OrderBy(argument => argument.Position))
             {
                 builder.AppendLine(
-                    $"| `{positional.Position}` | `{positional.PropertyName}` | `{positional.SourceOptionType}` | {YesNo(positional.Required)} | {Escape(positional.DefaultValue ?? string.Empty)} | `{positional.ValueType}` | {Escape(positional.HelpText ?? string.Empty)} |");
+                    $"| `{positional.Position}` | `{positional.PropertyName}` | `{TypeDisplayFormatter.FormatSourceType(positional.SourceOptionType)}` | {YesNo(positional.Required)} | {Escape(positional.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(positional.ValueType)}` | {Escape(positional.HelpText ?? string.Empty)} |");
             }
         }
 
@@ -145,7 +145,7 @@ internal sealed class CliReferenceRenderer
         foreach (var option in command.Options.OrderBy(argument => argument.LongName, StringComparer.Ordinal))
         {
             builder.AppendLine(
-                $"| `{FormatFlag(option.ShortName, option.LongName)}` | `{option.PropertyName}` | `{option.SourceOptionType}` | {YesNo(option.IsInherited)} | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{option.ValueType}` | {Escape(option.HelpText ?? string.Empty)} |");
+                $"| `{FormatFlag(option.ShortName, option.LongName)}` | `{option.PropertyName}` | `{TypeDisplayFormatter.FormatSourceType(option.SourceOptionType)}` | {YesNo(option.IsInherited)} | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(option.ValueType)}` | {Escape(option.HelpText ?? string.Empty)} |");
         }
 
         return builder.ToString().TrimEnd();
@@ -174,7 +174,7 @@ internal sealed class CliReferenceRenderer
             foreach (var positional in command.Positionals.OrderBy(argument => argument.Index))
             {
                 builder.AppendLine(
-                    $"| `{positional.Index}` | `{positional.PropertyName}` | `{positional.SourceOptionType}` | {YesNo(positional.IsInherited)} | {YesNo(positional.Required)} | {Escape(positional.DefaultValue ?? string.Empty)} | `{positional.ValueType}` | {Escape(positional.HelpText)} |");
+                    $"| `{positional.Index}` | `{positional.PropertyName}` | `{TypeDisplayFormatter.FormatSourceType(positional.SourceOptionType)}` | {YesNo(positional.IsInherited)} | {YesNo(positional.Required)} | {Escape(positional.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(positional.ValueType)}` | {Escape(positional.HelpText)} |");
             }
         }
 
@@ -186,7 +186,7 @@ internal sealed class CliReferenceRenderer
         foreach (var option in command.Options.OrderBy(argument => argument.LongName, StringComparer.Ordinal))
         {
             builder.AppendLine(
-                $"| `{FormatFlag(option.ShortName, option.LongName)}` | `{option.PropertyName}` | `{option.SourceOptionType}` | {YesNo(option.IsInherited)} | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{option.ValueType}` | {Escape(option.HelpText)} |");
+                $"| `{FormatFlag(option.ShortName, option.LongName)}` | `{option.PropertyName}` | `{TypeDisplayFormatter.FormatSourceType(option.SourceOptionType)}` | {YesNo(option.IsInherited)} | {YesNo(option.Required)} | {Escape(option.DefaultValue ?? string.Empty)} | `{TypeDisplayFormatter.FormatValueType(option.ValueType)}` | {Escape(option.HelpText)} |");
         }
 
         return builder.ToString().TrimEnd();

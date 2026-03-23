@@ -43,12 +43,14 @@ internal static class CliCatalogValidator
 
         foreach (var positional in command.Positionals)
         {
+            ValidateFriendlyTypeName(positional.SourceOptionType, $"{path}:{command.Name}:{positional.PropertyName} source type");
             ValidateFriendlyTypeName(positional.ValueType, $"{path}:{command.Name}:{positional.PropertyName} value type");
             ValidateOptionalInlineText(positional.HelpText, $"{path}:{command.Name}:{positional.PropertyName} help");
         }
 
         foreach (var option in command.Options)
         {
+            ValidateFriendlyTypeName(option.SourceOptionType, $"{path}:{command.Name}:{option.PropertyName} source type");
             ValidateFriendlyTypeName(option.ValueType, $"{path}:{command.Name}:{option.PropertyName} value type");
             ValidateOptionalInlineText(option.HelpText, $"{path}:{command.Name}:{option.PropertyName} help");
             ValidateShortName(option.ShortName, $"{path}:{command.Name}:{option.PropertyName} short name");
@@ -67,12 +69,14 @@ internal static class CliCatalogValidator
 
         foreach (var positional in command.Positionals)
         {
+            ValidateFriendlyTypeName(positional.SourceOptionType, $"{path}:{command.Name}:{positional.PropertyName} source type");
             ValidateFriendlyTypeName(positional.ValueType, $"{path}:{command.Name}:{positional.PropertyName} value type");
             ValidateInlineText(positional.HelpText, $"{path}:{command.Name}:{positional.PropertyName} help");
         }
 
         foreach (var option in command.Options)
         {
+            ValidateFriendlyTypeName(option.SourceOptionType, $"{path}:{command.Name}:{option.PropertyName} source type");
             ValidateFriendlyTypeName(option.ValueType, $"{path}:{command.Name}:{option.PropertyName} value type");
             ValidateInlineText(option.HelpText, $"{path}:{command.Name}:{option.PropertyName} help");
             ValidateShortName(option.ShortName, $"{path}:{command.Name}:{option.PropertyName} short name");
