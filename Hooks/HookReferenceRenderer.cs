@@ -207,7 +207,17 @@ internal sealed class HookReferenceRenderer
             return null;
         }
 
-        if (lines[0].StartsWith("# ", StringComparison.Ordinal))
+        if (lines[0].StartsWith("<!-- generated hash:", StringComparison.Ordinal))
+        {
+            lines.RemoveAt(0);
+        }
+
+        while (lines.Count != 0 && string.IsNullOrWhiteSpace(lines[0]))
+        {
+            lines.RemoveAt(0);
+        }
+
+        if (lines.Count != 0 && lines[0].StartsWith("# ", StringComparison.Ordinal))
         {
             lines.RemoveAt(0);
         }
