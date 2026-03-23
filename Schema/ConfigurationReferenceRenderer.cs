@@ -9,31 +9,21 @@ internal sealed class ConfigurationReferenceRenderer
     {
         return RenderFamily(
             familyDocs,
-            "qaas/userInterfaces/runner/configurationSections",
-            "QaaS Runner",
-            ["Links: []", "Storages: []", "DataSources: []", "Sessions: []", "Assertions: []", "MetaData: {}"]);
+            "qaas/userInterfaces/runner/configurationSections");
     }
 
     public IReadOnlyList<GeneratedDocument> RenderMocker(FamilySchemaDocs familyDocs)
     {
         return RenderFamily(
             familyDocs,
-            "mocker/userInterfaces/mocker/configurationSections",
-            "QaaS Mocker",
-            ["DataSources: []", "Stubs: []", "Controller: {}", "Servers: []"]);
+            "mocker/userInterfaces/mocker/configurationSections");
     }
 
     private static IReadOnlyList<GeneratedDocument> RenderFamily(
         FamilySchemaDocs familyDocs,
-        string rootPath,
-        string productName,
-        IReadOnlyList<string> topLevelLayout)
+        string rootPath)
     {
-        var documents = new List<GeneratedDocument>
-        {
-            new($"{rootPath}/configurationSections.md",
-                GeneratedDocumentHasher.WithHeader(RenderOverview(familyDocs, productName, topLevelLayout), [familyDocs.FamilyId, "configuration-overview"]))
-        };
+        var documents = new List<GeneratedDocument>();
 
         foreach (var section in familyDocs.Sections)
         {
@@ -44,9 +34,6 @@ internal sealed class ConfigurationReferenceRenderer
 
             var basePath = $"{rootPath}/{section.DocsSlug}";
             documents.Add(new GeneratedDocument(
-                $"{basePath}/overview.md",
-                GeneratedDocumentHasher.WithHeader(RenderSectionOverview(section), [familyDocs.FamilyId, section.Id, "overview"])));
-            documents.Add(new GeneratedDocument(
                 $"{basePath}/configurations/tableView.md",
                 GeneratedDocumentHasher.WithHeader(RenderTableView(section, property), [familyDocs.FamilyId, section.Id, "table-view"])));
             documents.Add(new GeneratedDocument(
@@ -55,59 +42,6 @@ internal sealed class ConfigurationReferenceRenderer
         }
 
         return documents;
-    }
-
-    private static string RenderOverview(FamilySchemaDocs familyDocs, string productName, IReadOnlyList<string> topLevelLayout)
-    {
-        var builder = new StringBuilder();
-        builder.AppendLine("# Configuration Sections");
-        builder.AppendLine();
-        builder.AppendLine($"This page is generated from the current `{productName}` family schema.");
-        builder.AppendLine();
-        builder.AppendLine("The current top-level layout is:");
-        builder.AppendLine();
-        builder.AppendLine("```yaml");
-        foreach (var line in topLevelLayout)
-        {
-            builder.AppendLine(line);
-            builder.AppendLine();
-        }
-        builder.AppendLine("```");
-        builder.AppendLine();
-        builder.AppendLine("## Sections");
-        builder.AppendLine();
-        builder.AppendLine("| Section | Description |");
-        builder.AppendLine("| ------- | ----------- |");
-        foreach (var section in familyDocs.Sections)
-        {
-            builder.AppendLine($"| `{section.Title}` | {Escape(section.OverviewSummary)} |");
-        }
-        builder.AppendLine();
-        builder.AppendLine("## Table View Order");
-        builder.AppendLine();
-        builder.AppendLine("1. Property paths follow the YAML hierarchy.");
-        builder.AppendLine("2. Under every parent, primitive fields come before arrays and nested objects.");
-        builder.AppendLine("3. The pages document the current property names from the live family schema.");
-        return builder.ToString().TrimEnd();
-    }
-
-    private static string RenderSectionOverview(SchemaSection section)
-    {
-        var builder = new StringBuilder();
-        builder.AppendLine($"# {section.Title}");
-        builder.AppendLine();
-        builder.AppendLine(section.OverviewSummary);
-        if (section.Notes.Count != 0)
-        {
-            builder.AppendLine();
-            builder.AppendLine("## Notes");
-            builder.AppendLine();
-            foreach (var note in section.Notes)
-            {
-                builder.AppendLine($"- {note}");
-            }
-        }
-        return builder.ToString().TrimEnd();
     }
 
     private static string RenderTableView(SchemaSection section, JsonSchemaProperty property)
