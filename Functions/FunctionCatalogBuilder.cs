@@ -144,7 +144,7 @@ internal static class FunctionCatalogBuilder
         DocumentationComment documentation,
         bool isExtensionMethod)
     {
-        if (IsExcludedSerializerMember(product, member))
+        if (IsExcludedSerializerMember(member) || IsObsoleteMember(member))
         {
             return false;
         }
@@ -163,14 +163,24 @@ internal static class FunctionCatalogBuilder
                !string.IsNullOrWhiteSpace(documentation.Remarks);
     }
 
-    private static bool IsExcludedSerializerMember(string product, BaseMethodDeclarationSyntax member)
+    private static bool IsExcludedSerializerMember(BaseMethodDeclarationSyntax member)
     {
-        if (product is not ("Runner" or "Mocker") || member is not MethodDeclarationSyntax method)
+        if (member is not MethodDeclarationSyntax method)
         {
             return false;
         }
 
         return method.Identifier.Text is "Read" or "Write";
+    }
+
+    private static bool IsObsoleteMember(MemberDeclarationSyntax member)
+    {
+        return member.AttributeLists
+            .SelectMany(attributeList => attributeList.Attributes)
+            .Select(attribute => attribute.Name.ToString())
+            .Any(attributeName =>
+                attributeName.EndsWith("Obsolete", StringComparison.Ordinal) ||
+                attributeName.EndsWith("ObsoleteAttribute", StringComparison.Ordinal));
     }
 
     private static DocsPlacement? ResolvePlacement(
@@ -200,7 +210,17 @@ internal static class FunctionCatalogBuilder
             trimmedTypeName = trimmedTypeName[..^"Extension".Length];
         }
 
-        return TypeDisplayFormatter.FormatSourceType(trimmedTypeName);
+        if (trimmedTypeName.Length > 1 &&
+            trimmedTypeName[0] == 'I' &&
+            char.IsUpper(trimmedTypeName[1]))
+        {
+            trimmedTypeName = trimmedTypeName[1..];
+        }
+
+        var subgroup = TypeDisplayFormatter.FormatSourceType(trimmedTypeName);
+        return subgroup.EndsWith(" utils", StringComparison.Ordinal)
+            ? subgroup[..^" utils".Length] + " utilities"
+            : subgroup;
     }
 
     private static bool IsInternalLeakingMember(BaseMethodDeclarationSyntax member)
@@ -472,17 +492,9 @@ internal sealed class FunctionReferenceRenderer
 
     private static IReadOnlyDictionary<FunctionEntry, string> BuildHeadingLabels(IReadOnlyList<FunctionEntry> entries)
     {
-        var duplicatedShortNames = entries
-            .GroupBy(entry => entry.ShortName, StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)
-            .Select(group => group.Key)
-            .ToHashSet(StringComparer.Ordinal);
-
         return entries.ToDictionary(
             entry => entry,
-            entry => duplicatedShortNames.Contains(entry.ShortName)
-                ? entry.OverloadName
-                : entry.ShortName);
+            entry => entry.ShortName);
     }
 
     private static string GetDeclaringTypeLabel(FunctionEntry entry)
