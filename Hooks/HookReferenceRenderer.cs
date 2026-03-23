@@ -378,24 +378,43 @@ internal sealed class HookReferenceRenderer
             return lines;
         }
 
-        private static void RenderYamlCore(ICollection<string> lines, int indentLevel, string propertyName, JsonSchema schema)
+        private static void RenderYamlCore(
+            ICollection<string> lines,
+            int indentLevel,
+            string propertyName,
+            JsonSchema schema,
+            string? linePrefix = null)
         {
             var indent = new string(' ', indentLevel * 2);
+            var propertyLine = $"{indent}{linePrefix}{propertyName}:";
 
             if (schema.Type.HasFlag(JsonObjectType.Array) && TryGetItemSchema(schema, out var itemSchema))
             {
                 if (itemSchema.ActualSchema.Type.HasFlag(JsonObjectType.Object))
                 {
-                    lines.Add($"{indent}{propertyName}:");
-                    lines.Add($"{indent}  -");
-                    foreach (var child in OrderProperties(itemSchema.ActualSchema))
+                    lines.Add(propertyLine);
+                    var children = OrderProperties(itemSchema.ActualSchema).ToList();
+                    if (children.Count == 0)
+                    {
+                        lines.Add($"{indent}  -");
+                        return;
+                    }
+
+                    RenderYamlCore(
+                        lines,
+                        indentLevel + 1,
+                        children[0].Key,
+                        children[0].Value.ActualSchema,
+                        "- ");
+
+                    foreach (var child in children.Skip(1))
                     {
                         RenderYamlCore(lines, indentLevel + 2, child.Key, child.Value.ActualSchema);
                     }
                 }
                 else
                 {
-                    lines.Add($"{indent}{propertyName}: []");
+                    lines.Add($"{indent}{linePrefix}{propertyName}: []");
                 }
 
                 return;
@@ -403,7 +422,7 @@ internal sealed class HookReferenceRenderer
 
             if (schema.Type.HasFlag(JsonObjectType.Object) && schema.Properties.Count != 0)
             {
-                lines.Add($"{indent}{propertyName}:");
+                lines.Add(propertyLine);
                 foreach (var child in OrderProperties(schema))
                 {
                     RenderYamlCore(lines, indentLevel + 1, child.Key, child.Value.ActualSchema);
@@ -412,7 +431,7 @@ internal sealed class HookReferenceRenderer
                 return;
             }
 
-            lines.Add($"{indent}{propertyName}:");
+            lines.Add(propertyLine);
         }
 
         private static IEnumerable<KeyValuePair<string, JsonSchemaProperty>> OrderProperties(JsonSchema schema)

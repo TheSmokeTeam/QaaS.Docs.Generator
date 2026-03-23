@@ -37,8 +37,6 @@ internal sealed class CliReferenceRenderer
         var builder = new StringBuilder();
         builder.AppendLine("# Commands");
         builder.AppendLine();
-        builder.AppendLine("This page is generated from a committed Runner CLI snapshot captured from the live help path.");
-        builder.AppendLine();
         builder.AppendLine("Running without a command currently prints:");
         builder.AppendLine();
         builder.AppendLine("```text");
@@ -63,8 +61,6 @@ internal sealed class CliReferenceRenderer
     {
         var builder = new StringBuilder();
         builder.AppendLine("# Commands");
-        builder.AppendLine();
-        builder.AppendLine("This page is generated from a committed Mocker CLI snapshot captured from the live help path.");
         builder.AppendLine();
         builder.AppendLine("Running without a command currently prints:");
         builder.AppendLine();

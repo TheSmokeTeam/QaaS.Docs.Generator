@@ -362,12 +362,6 @@ internal sealed class FunctionReferenceRenderer
         builder.AppendLine();
         builder.AppendLine("Each category page keeps the table of contents focused on short function names and collapses the location, signature, and XML doc comments behind each entry.");
 
-        if (product is "Runner" or "Mocker")
-        {
-            builder.AppendLine();
-            builder.AppendLine("Serializer-only `Read` and `Write` members are intentionally omitted from this reference.");
-        }
-
         if (explicitlyDocumentedEntries.Count == 0 && extensionEntries.Count == 0)
         {
             builder.AppendLine();
