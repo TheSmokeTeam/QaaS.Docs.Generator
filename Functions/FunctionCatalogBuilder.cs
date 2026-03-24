@@ -383,15 +383,14 @@ internal sealed class FunctionReferenceRenderer
                          .OrderBy(subgroup => subgroup.Key.Subgroup, StringComparer.Ordinal))
             {
                 builder.AppendLine(
-                    $"- [{subgroup.Key.Subgroup}]({GetCategoryRelativeLink(subgroup.Key)}) - {CountLabel(subgroup.Count(), "function")}");
+                    $"- [{subgroup.Key.Subgroup}]({GetCategoryRelativeLink(subgroup.Key)})");
             }
         }
 
         builder.AppendLine();
         builder.AppendLine("## Extension Methods");
         builder.AppendLine();
-        builder.AppendLine(
-            $"- [Extension Methods](extension-methods.md) - {CountLabel(extensionEntries.Count, "extension method")}");
+        builder.AppendLine("- [Extension Methods](extension-methods.md)");
 
         return builder.ToString().TrimEnd();
     }
