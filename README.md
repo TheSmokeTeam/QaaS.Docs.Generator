@@ -36,7 +36,8 @@ The CLI snapshots are intentionally committed artifacts.
 
 ## Important constraints
 
-- Generated files are checked for drift by hash.
+- Generated files are checked for content drift by full-file comparison.
+- Generated markdown content is the source of truth; the renderer does not prepend synthetic hash headers.
 - The generator intentionally does not depend on committed docs exporters inside `QaaS.Runner` or `QaaS.Mocker`.
 - Functions are discovered from the current source tree but included only when a public method carries a `qaas-docs` placement tag in its XML documentation comment.
 

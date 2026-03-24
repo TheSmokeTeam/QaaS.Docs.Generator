@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-
 namespace QaaS.Docs.Generator;
 
 internal sealed record GeneratedDocument(string RelativePath, string Content);
@@ -74,16 +71,8 @@ internal sealed class GeneratedDocumentWriter
 
 internal static class GeneratedDocumentHasher
 {
-    public static string Hash(string content)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(GeneratedDocumentLineEndings.Normalize(content)));
-        return Convert.ToHexString(bytes).ToLowerInvariant()[..12];
-    }
-
     public static string WithHeader(string body, params IEnumerable<string> sources)
     {
-        var normalizedBody = GeneratedDocumentLineEndings.Normalize(body);
-        var hash = Hash(normalizedBody);
-        return $"<!-- generated hash:{hash} sources:{string.Join(", ", sources)} -->{GeneratedDocumentLineEndings.Canonical}{GeneratedDocumentLineEndings.Canonical}{normalizedBody}";
+        return GeneratedDocumentLineEndings.Normalize(body);
     }
 }
