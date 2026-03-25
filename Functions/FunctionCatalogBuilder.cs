@@ -403,9 +403,6 @@ internal sealed class FunctionReferenceRenderer
         var builder = new StringBuilder();
         builder.AppendLine($"# {category.Subgroup}");
         builder.AppendLine();
-        builder.AppendLine(
-            $"Source-driven reference for `{product}` functions in the `{category.DisplayGroup} / {category.Subgroup}` category.");
-        builder.AppendLine();
         builder.AppendLine("Each entry uses the short function name as the table-of-contents label. Expand an entry to inspect its location, signature, and XML doc comments.");
 
         RenderFunctionSections(builder, entries, headingLevel: 2);

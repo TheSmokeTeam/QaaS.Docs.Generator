@@ -4,32 +4,63 @@ namespace QaaS.Docs.Generator.Cli;
 
 internal sealed class CliReferenceRenderer
 {
+    private static readonly HashSet<string> ManuallyMaintainedRunnerPages = new(StringComparer.Ordinal)
+    {
+        "act",
+        "assert",
+        "commands",
+        "execute",
+        "run",
+        "template"
+    };
+
+    private static readonly HashSet<string> ManuallyMaintainedMockerPages = new(StringComparer.Ordinal)
+    {
+        "commands",
+        "run",
+        "template"
+    };
+
     public IReadOnlyList<GeneratedDocument> RenderRunner(RunnerCliCatalog catalog)
     {
         var commandRoot = "qaas/userInterfaces/runner/commands";
-        return new[]
+        var documents = new List<GeneratedDocument>();
+
+        if (!ManuallyMaintainedRunnerPages.Contains("commands"))
         {
-            new GeneratedDocument(
+            documents.Add(new GeneratedDocument(
                 $"{commandRoot}/commands.md",
-                GeneratedDocumentHasher.WithHeader(RenderRunnerOverview(catalog), ["Runner", "cli-overview"]))
-        }.Concat(catalog.Commands.Select(command => new GeneratedDocument(
+                GeneratedDocumentHasher.WithHeader(RenderRunnerOverview(catalog), ["Runner", "cli-overview"])));
+        }
+
+        documents.AddRange(catalog.Commands
+            .Where(command => !ManuallyMaintainedRunnerPages.Contains(command.Name))
+            .Select(command => new GeneratedDocument(
                 $"{commandRoot}/{command.Name}.md",
-                GeneratedDocumentHasher.WithHeader(RenderRunnerCommand(command), ["Runner", command.Name, "cli-command"]))))
-            .ToList();
+                GeneratedDocumentHasher.WithHeader(RenderRunnerCommand(command), ["Runner", command.Name, "cli-command"]))));
+
+        return documents;
     }
 
     public IReadOnlyList<GeneratedDocument> RenderMocker(MockerCliCatalog catalog)
     {
         var commandRoot = "mocker/userInterfaces/mocker/commands";
-        return new[]
+        var documents = new List<GeneratedDocument>();
+
+        if (!ManuallyMaintainedMockerPages.Contains("commands"))
         {
-            new GeneratedDocument(
+            documents.Add(new GeneratedDocument(
                 $"{commandRoot}/commands.md",
-                GeneratedDocumentHasher.WithHeader(RenderMockerOverview(catalog), ["Mocker", "cli-overview"]))
-        }.Concat(catalog.Commands.Select(command => new GeneratedDocument(
+                GeneratedDocumentHasher.WithHeader(RenderMockerOverview(catalog), ["Mocker", "cli-overview"])));
+        }
+
+        documents.AddRange(catalog.Commands
+            .Where(command => !ManuallyMaintainedMockerPages.Contains(command.Name))
+            .Select(command => new GeneratedDocument(
                 $"{commandRoot}/{command.Name}.md",
-                GeneratedDocumentHasher.WithHeader(RenderMockerCommand(command), ["Mocker", command.Name, "cli-command"]))))
-            .ToList();
+                GeneratedDocumentHasher.WithHeader(RenderMockerCommand(command), ["Mocker", command.Name, "cli-command"]))));
+
+        return documents;
     }
 
     private static string RenderRunnerOverview(RunnerCliCatalog catalog)
