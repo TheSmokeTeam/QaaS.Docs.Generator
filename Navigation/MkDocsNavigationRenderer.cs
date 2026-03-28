@@ -25,7 +25,8 @@ internal sealed class MkDocsNavigationRenderer
         new("framework-functions", "framework/functions/index.md", 6)
     ];
 
-    private static readonly Regex OverviewGroupHeadingRegex = new("^## (?<title>.+?)\\s*$", RegexOptions.Compiled);
+    private static readonly Regex AvailableFunctionsHeadingRegex = new("^## Available Functions\\s*$", RegexOptions.Compiled);
+    private static readonly Regex OverviewGroupHeadingRegex = new("^### (?<title>.+?)\\s*$", RegexOptions.Compiled);
     private static readonly Regex OverviewLinkRegex = new("^- \\[(?<title>.+?)\\]\\((?<path>.+?)\\)\\s*$", RegexOptions.Compiled);
     private static readonly Regex HookGroupHeadingRegex = new("^### (?<title>.+?)\\s*$", RegexOptions.Compiled);
     private static readonly Regex HookLinkRegex = new("^- \\[(?<title>.+?)\\]\\((?<path>.+?/overview\\.md)\\):", RegexOptions.Compiled);
@@ -204,9 +205,16 @@ internal sealed class MkDocsNavigationRenderer
         var baseDirectory = Path.GetDirectoryName(spec.OverviewRelativePath)!.Replace('\\', '/');
         var groups = new List<FunctionGroup>();
         FunctionGroup? currentGroup = null;
+        var insideAvailableFunctions = false;
 
         foreach (var line in ReadLines(overviewPath))
         {
+            if (!insideAvailableFunctions)
+            {
+                insideAvailableFunctions = AvailableFunctionsHeadingRegex.IsMatch(line);
+                continue;
+            }
+
             var groupMatch = OverviewGroupHeadingRegex.Match(line);
             if (groupMatch.Success)
             {

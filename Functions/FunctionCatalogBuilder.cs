@@ -361,6 +361,8 @@ internal sealed class FunctionReferenceRenderer
         builder.AppendLine("This overview indexes the current public function surface documented through source-level `qaas-docs` annotations and extension-method XML docs.");
         builder.AppendLine();
         builder.AppendLine("Each category page keeps the table of contents focused on short function names and collapses the source file, signature, and XML doc comments behind each entry.");
+        builder.AppendLine();
+        builder.AppendLine("## Available Functions");
 
         if (explicitlyDocumentedEntries.Count == 0 && extensionEntries.Count == 0)
         {
@@ -375,7 +377,7 @@ internal sealed class FunctionReferenceRenderer
                      .ThenBy(group => group.Key, StringComparer.Ordinal))
         {
             builder.AppendLine();
-            builder.AppendLine($"## {group.Key}");
+            builder.AppendLine($"### {group.Key}");
             builder.AppendLine();
 
             foreach (var subgroup in group
@@ -388,7 +390,7 @@ internal sealed class FunctionReferenceRenderer
         }
 
         builder.AppendLine();
-        builder.AppendLine("## Extension Methods");
+        builder.AppendLine("### Extension Methods");
         builder.AppendLine();
         builder.AppendLine("- [Extension Methods](extension-methods.md)");
 

@@ -69,7 +69,7 @@ internal sealed class HookReferenceRenderer
                 documents.Add(new GeneratedDocument(
                     $"{spec.DocsRoot}/{docsSlug}/overview.md",
                     GeneratedDocumentHasher.WithHeader(
-                        RenderOverviewPage(docsSlug, summary, placement, customOverviewContent),
+                        RenderOverviewPage(docsSlug, summary, customOverviewContent),
                         [kind, docsSlug, "overview", placement.Group, placement.Subgroup])));
 
                 if (!catalog.TryGetValue($"{kind}|{docsSlug}", out var hookCatalogEntry))
@@ -189,19 +189,34 @@ internal sealed class HookReferenceRenderer
         }
 
         var text = await File.ReadAllTextAsync(sourceFile);
-        var syntaxTree = CSharpSyntaxTree.ParseText(text, path: sourceFile);
-        var root = await syntaxTree.GetRootAsync();
-        var typeDeclaration = root.DescendantNodes()
+        return ParseHookDocumentation(text, sourceFile, docsSlug);
+    }
+
+    internal static HookDocumentation ParseHookDocumentation(string sourceText, string sourceFile, string docsSlug)
+    {
+        var syntaxTree = CSharpSyntaxTree.ParseText(sourceText, path: sourceFile);
+        var root = syntaxTree.GetRoot();
+        var candidates = root.DescendantNodes()
             .OfType<TypeDeclarationSyntax>()
-            .FirstOrDefault(candidate => string.Equals(candidate.Identifier.Text, docsSlug, StringComparison.Ordinal));
-        if (typeDeclaration is null)
+            .Where(candidate => string.Equals(candidate.Identifier.Text, docsSlug, StringComparison.Ordinal))
+            .Select(candidate => (Type: candidate, Documentation: DocumentationCommentParser.Parse(candidate)))
+            .ToList();
+
+        if (candidates.Count == 0)
         {
             return new HookDocumentation(null, null);
         }
 
-        var documentation = DocumentationCommentParser.Parse(typeDeclaration);
-        var summary = string.IsNullOrWhiteSpace(documentation.Summary) ? null : documentation.Summary;
-        return new HookDocumentation(summary, documentation.Placement);
+        var bestCandidate = candidates
+            .OrderByDescending(candidate => candidate.Documentation.Placement is not null)
+            .ThenByDescending(candidate => !string.IsNullOrWhiteSpace(candidate.Documentation.Summary))
+            .ThenBy(candidate => candidate.Type.TypeParameterList?.Parameters.Count ?? 0)
+            .First();
+
+        var summary = string.IsNullOrWhiteSpace(bestCandidate.Documentation.Summary)
+            ? null
+            : bestCandidate.Documentation.Summary;
+        return new HookDocumentation(summary, bestCandidate.Documentation.Placement);
     }
 
     private static string? FindHookSourceFile(string sourceRoot, string docsSlug)
@@ -270,6 +285,10 @@ internal sealed class HookReferenceRenderer
                 lines.RemoveAt(lines.Count - 1);
             }
         }
+
+        lines = lines
+            .Where(line => !line.StartsWith("> Logical group:", StringComparison.Ordinal))
+            .ToList();
 
         return lines.Count == 0
             ? null
@@ -403,19 +422,16 @@ internal sealed class HookReferenceRenderer
         return new DocsPlacement("Other", docsSlug);
     }
 
-    private static string RenderOverviewPage(
+    internal static string RenderOverviewPage(
         string title,
         string summary,
-        DocsPlacement placement,
         string? customOverviewContent)
     {
         var lines = new List<string>
         {
             $"# {title}",
             string.Empty,
-            summary,
-            string.Empty,
-            $"> Logical group: {placement.Group} / {placement.Subgroup}"
+            summary
         };
 
         if (!string.IsNullOrWhiteSpace(customOverviewContent))
@@ -441,7 +457,7 @@ internal sealed class HookReferenceRenderer
         builder.AppendLine(GeneratedCatalogStart);
         builder.AppendLine("## Available Hooks");
         builder.AppendLine();
-        builder.AppendLine("The built-in hooks below are grouped by implementation type so it is easier to shortlist the right hook before drilling into configuration details.");
+        builder.AppendLine("The built-in hooks below are grouped by usage area so it is easier to shortlist the right hook before drilling into configuration details.");
 
         foreach (var group in entries
                      .GroupBy(entry => entry.Group, StringComparer.Ordinal)
@@ -457,7 +473,7 @@ internal sealed class HookReferenceRenderer
                          .ThenBy(candidate => candidate.DocsSlug, StringComparer.Ordinal))
             {
                 builder.AppendLine(
-                    $"- [{entry.DocsSlug}]({relativeHooksRoot}/{entry.DocsSlug}/overview.md): {entry.Subgroup}. {LeadParagraph(entry.Summary)}");
+                    $"- [{entry.DocsSlug}]({relativeHooksRoot}/{entry.DocsSlug}/overview.md): {LeadParagraph(entry.Summary)}");
             }
         }
 
@@ -498,7 +514,7 @@ internal sealed class HookReferenceRenderer
         {
             "assertion" => ["Latency", "Hermeticity", "Content validation", "Contract validation", "Transport metadata"],
             "generator" => ["External sources", "Existing data sources", "Structured payloads"],
-            "probe" => ["RabbitMQ administration", "Redis maintenance", "Document stores", "Object storage", "SQL maintenance", "Cluster orchestration"],
+            "probe" => ["RabbitMQ administration", "Redis maintenance", "Databases", "SQL maintenance", "Cluster orchestration"],
             "processor" => ["Static responses", "Request-derived responses", "Transformations", "Data-driven responses", "Error responses"],
             _ => []
         };
@@ -563,7 +579,7 @@ internal sealed class HookReferenceRenderer
         string FamilyId,
         string ConfigurationSchemaJsonPointer);
 
-    private sealed record HookDocumentation(string? Summary, DocsPlacement? Placement);
+    internal sealed record HookDocumentation(string? Summary, DocsPlacement? Placement);
 
     private sealed record HookIndexEntry(string DocsSlug, string Summary, string Group, string Subgroup);
 
