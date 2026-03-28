@@ -4,7 +4,12 @@
 
 This repository is consumed by [`qaas-docs`](https://github.com/TheSmokeTeam/qaas-docs) as a git submodule so the renderer can evolve independently without living inline inside the docs repository.
 
-It consumes three kinds of inputs:
+It contains two cooperating tools:
+
+1. `QaaS.Docs.Generator/` renders the deterministic markdown content.
+2. `QaaS.Docs.Tools/` is the documented C# CLI that orchestrates snapshot refresh, hook overview enrichment, schema asset mirroring, and end-to-end docs validation.
+
+Those tools consume three kinds of inputs:
 
 1. Mirror-owned schema contracts from `QaaS.PackageMirror`
 2. CLI snapshots captured into `Snapshots/` from the current Runner, Mocker, and Framework worktrees
@@ -15,16 +20,16 @@ It writes the generated markdown into the stable `docs/` paths already used by `
 ## Why the inputs are split this way
 
 - Schema structure belongs in `QaaS.PackageMirror`, because that repo already owns family schema generation.
-- CLI snapshots are committed here on purpose so the docs build has deterministic inputs, but they are refreshed automatically by `qaas-docs/scripts/Generate-ReferenceDocs.ps1`.
+- CLI snapshots are committed here on purpose so the docs build has deterministic inputs, but they are refreshed automatically by `QaaS.Docs.Tools`.
 - Function grouping lives in the source repos so each documented public method carries its own docstring and docs placement metadata.
 
 ## Refresh process
 
 1. Regenerate mirror artifacts in `QaaS.PackageMirror`.
-2. Refresh the committed CLI snapshot files from `qaas-docs/scripts/Generate-ReferenceDocs.ps1` or `qaas-docs/scripts/Refresh-CliSnapshots.ps1`.
+2. Refresh the committed CLI snapshot files from `QaaS.Docs.Tools`.
 3. Update the annotated public methods in `QaaS.Runner`, `QaaS.Mocker`, and `QaaS.Framework` when the curated user-facing API surface changes.
-4. From `qaas-docs`, run `scripts/Generate-ReferenceDocs.ps1`.
-5. From `qaas-docs`, run the same script with `-Check -BuildSite` before opening a PR.
+4. From `qaas-docs`, run `dotnet run --project .\tools\QaaS.Docs.Generator\QaaS.Docs.Tools\QaaS.Docs.Tools.csproj -- generate-reference-docs`.
+5. From `qaas-docs`, run the same command with `--check --build-site` before opening a PR.
 
 ## CLI snapshot contract
 
@@ -49,4 +54,4 @@ This repository validates the buildable renderer surface:
 dotnet build .\QaaS.Docs.Generator.csproj -c Release
 ```
 
-The full end-to-end docs verification remains in `qaas-docs`, because that is where `Generate-ReferenceDocs.ps1` runs against the mirror artifacts and the generated documentation tree.
+The full end-to-end docs verification remains in `qaas-docs`, because that is where `QaaS.Docs.Tools generate-reference-docs` runs against the mirror artifacts and the generated documentation tree.

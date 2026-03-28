@@ -16,6 +16,9 @@
     <Compile Remove="QaaS.Docs.Generator.Tests\**\*.cs" />
     <EmbeddedResource Remove="QaaS.Docs.Generator.Tests\**\*" />
     <None Remove="QaaS.Docs.Generator.Tests\**\*" />
+    <Compile Remove="QaaS.Docs.Tools\**\*.cs" />
+    <EmbeddedResource Remove="QaaS.Docs.Tools\**\*" />
+    <None Remove="QaaS.Docs.Tools\**\*" />
   </ItemGroup>
 
 </Project>

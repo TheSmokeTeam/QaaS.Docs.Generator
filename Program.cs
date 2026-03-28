@@ -44,7 +44,7 @@ internal static class Program
             var hookDocuments = await new HookReferenceRenderer().RenderAsync(options.DocsRoot, options.MirrorRoot);
             if (options.Check)
             {
-                // Hook overviews are post-processed by qaas-docs/scripts/Update-HookOverviews.ps1,
+                // Hook overviews are post-processed by QaaS.Docs.Tools,
                 // so check mode validates their final rendered form there instead of comparing the
                 // intermediate generator output here.
                 hookDocuments = hookDocuments

@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\QaaS.Docs.Generator.csproj" />
+    <ProjectReference Include="..\QaaS.Docs.Tools\QaaS.Docs.Tools.csproj" />
   </ItemGroup>
 
 </Project>
