@@ -358,9 +358,9 @@ internal sealed class FunctionReferenceRenderer
         var builder = new StringBuilder();
         builder.AppendLine($"# {product} Functions");
         builder.AppendLine();
-        builder.AppendLine("This overview is generated from source-level `qaas-docs` annotations and the current public extension-method surface.");
+        builder.AppendLine("This overview indexes the current public function surface documented through source-level `qaas-docs` annotations and extension-method XML docs.");
         builder.AppendLine();
-        builder.AppendLine("Each category page keeps the table of contents focused on short function names and collapses the location, signature, and XML doc comments behind each entry.");
+        builder.AppendLine("Each category page keeps the table of contents focused on short function names and collapses the source file, signature, and XML doc comments behind each entry.");
 
         if (explicitlyDocumentedEntries.Count == 0 && extensionEntries.Count == 0)
         {
@@ -403,7 +403,7 @@ internal sealed class FunctionReferenceRenderer
         var builder = new StringBuilder();
         builder.AppendLine($"# {category.Subgroup}");
         builder.AppendLine();
-        builder.AppendLine("Each entry uses the short function name as the table-of-contents label. Expand an entry to inspect its location, signature, and XML doc comments.");
+        builder.AppendLine("Each entry uses the short function name as the table-of-contents label. Expand an entry to inspect its source file, signature, and XML doc comments.");
 
         RenderFunctionSections(builder, entries, headingLevel: 2);
 
@@ -465,7 +465,7 @@ internal sealed class FunctionReferenceRenderer
             builder.AppendLine();
             builder.AppendLine($"{headingPrefix} `{headingLabels[entry]}`");
             builder.AppendLine();
-            builder.AppendLine("??? info \"Location, signature, and docstring\"");
+            builder.AppendLine("??? info \"Source file, signature, and docstring\"");
             AppendIndentedLine(builder, "**Member**");
             AppendIndentedLine(builder, $"`{entry.DisplayName}`");
             AppendIndentedLine(builder);
@@ -473,7 +473,7 @@ internal sealed class FunctionReferenceRenderer
             AppendIndentedLine(builder);
             AppendIndentedLine(builder, $"**Declaring Type** `{GetDeclaringTypeLabel(entry)}`");
             AppendIndentedLine(builder);
-            AppendIndentedLine(builder, $"**Location** `{entry.RelativePath}:{entry.LineNumber}`");
+            AppendIndentedLine(builder, $"**Source File** `{entry.RelativePath}`");
             AppendIndentedLine(builder);
             AppendIndentedLine(builder, "**Signature**");
             AppendIndentedLine(builder, "```csharp");

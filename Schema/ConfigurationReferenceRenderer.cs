@@ -5,11 +5,22 @@ namespace QaaS.Docs.Generator.Schema;
 
 internal sealed class ConfigurationReferenceRenderer
 {
+    private static readonly SessionTypeReference[] RunnerSessionTypeReferences =
+    [
+        new("Publishers", "publishers", "Publishers"),
+        new("Consumers", "consumers", "Consumers"),
+        new("Collectors", "collectors", "Collectors"),
+        new("Transactions", "transactions", "Transactions"),
+        new("Probes", "probes", "Probes"),
+        new("MockerCommands", "mockerCommands", "Mocker Commands")
+    ];
+
     public IReadOnlyList<GeneratedDocument> RenderRunner(FamilySchemaDocs familyDocs)
     {
         return RenderFamily(
             familyDocs,
-            "qaas/userInterfaces/runner/configurationSections");
+            "qaas/userInterfaces/runner/configurationSections",
+            includeRunnerSessionTypeReferences: true);
     }
 
     public IReadOnlyList<GeneratedDocument> RenderMocker(FamilySchemaDocs familyDocs)
@@ -21,7 +32,8 @@ internal sealed class ConfigurationReferenceRenderer
 
     private static IReadOnlyList<GeneratedDocument> RenderFamily(
         FamilySchemaDocs familyDocs,
-        string rootPath)
+        string rootPath,
+        bool includeRunnerSessionTypeReferences = false)
     {
         var documents = new List<GeneratedDocument>();
 
@@ -41,16 +53,72 @@ internal sealed class ConfigurationReferenceRenderer
                 GeneratedDocumentHasher.WithHeader(RenderYamlView(section, property), [familyDocs.FamilyId, section.Id, "yaml-view"])));
         }
 
+        if (includeRunnerSessionTypeReferences)
+        {
+            documents.AddRange(RenderRunnerSessionTypeReferences(familyDocs, rootPath));
+        }
+
+        return documents;
+    }
+
+    private static IReadOnlyList<GeneratedDocument> RenderRunnerSessionTypeReferences(
+        FamilySchemaDocs familyDocs,
+        string rootPath)
+    {
+        var documents = new List<GeneratedDocument>();
+        var sessionsSection = familyDocs.Sections.FirstOrDefault(section =>
+            string.Equals(section.TopLevelPropertyName, "Sessions", StringComparison.Ordinal));
+        if (sessionsSection is null ||
+            !familyDocs.Schema.Properties.TryGetValue(sessionsSection.TopLevelPropertyName, out var sessionsProperty) ||
+            !TryGetSessionItemSchema(sessionsProperty.ActualSchema, out var sessionItemSchema))
+        {
+            return documents;
+        }
+
+        foreach (var typeReference in RunnerSessionTypeReferences)
+        {
+            if (!sessionItemSchema.Properties.TryGetValue(typeReference.SchemaPropertyName, out var property))
+            {
+                continue;
+            }
+
+            var basePath = $"{rootPath}/sessions/types/{typeReference.DocsSlug}";
+            documents.Add(new GeneratedDocument(
+                $"{basePath}-tableView.md",
+                GeneratedDocumentHasher.WithHeader(
+                    RenderTableView(
+                        $"{typeReference.Title} Configurations Table View",
+                        $"Sessions[].{typeReference.SchemaPropertyName}",
+                        property),
+                    [familyDocs.FamilyId, sessionsSection.Id, typeReference.SchemaPropertyName, "table-view"])));
+            documents.Add(new GeneratedDocument(
+                $"{basePath}-yamlView.md",
+                GeneratedDocumentHasher.WithHeader(
+                    RenderYamlView(
+                        $"{typeReference.Title} Configurations Yaml View",
+                        typeReference.SchemaPropertyName,
+                        property),
+                    [familyDocs.FamilyId, sessionsSection.Id, typeReference.SchemaPropertyName, "yaml-view"])));
+        }
+
         return documents;
     }
 
     private static string RenderTableView(SchemaSection section, JsonSchemaProperty property)
     {
+        return RenderTableView(
+            $"{section.Title} Configurations Table View",
+            section.TopLevelPropertyName,
+            property);
+    }
+
+    private static string RenderTableView(string title, string rootPath, JsonSchemaProperty property)
+    {
         var rows = new List<TableRow>();
-        SchemaTraversal.Traverse(section.TopLevelPropertyName, property.ActualSchema, required: false, rows);
+        SchemaTraversal.Traverse(rootPath, property.ActualSchema, required: false, rows);
 
         var builder = new StringBuilder();
-        builder.AppendLine($"# {section.Title} Configurations Table View");
+        builder.AppendLine($"# {title}");
         builder.AppendLine();
         builder.AppendLine("| Property Path | Type | Required | Default | Description |");
         builder.AppendLine("| ------------- | ---- | -------- | ------- | ----------- |");
@@ -64,11 +132,19 @@ internal sealed class ConfigurationReferenceRenderer
 
     private static string RenderYamlView(SchemaSection section, JsonSchemaProperty property)
     {
+        return RenderYamlView(
+            $"{section.Title} Configurations Yaml View",
+            section.TopLevelPropertyName,
+            property);
+    }
+
+    private static string RenderYamlView(string title, string rootPropertyName, JsonSchemaProperty property)
+    {
         var builder = new StringBuilder();
-        builder.AppendLine($"# {section.Title} Configurations Yaml View");
+        builder.AppendLine($"# {title}");
         builder.AppendLine();
         builder.AppendLine("```yaml");
-        foreach (var line in SchemaTraversal.RenderYaml(section.TopLevelPropertyName, property.ActualSchema))
+        foreach (var line in SchemaTraversal.RenderYaml(rootPropertyName, property.ActualSchema))
         {
             builder.AppendLine(line);
         }
@@ -84,7 +160,27 @@ internal sealed class ConfigurationReferenceRenderer
             .Replace("\n", "<br />", StringComparison.Ordinal);
     }
 
+    private static bool TryGetSessionItemSchema(JsonSchema schema, out JsonSchema itemSchema)
+    {
+        if (schema.Item is not null)
+        {
+            itemSchema = schema.Item.ActualSchema;
+            return true;
+        }
+
+        if (schema.Items.Count != 0)
+        {
+            itemSchema = schema.Items.First().ActualSchema;
+            return true;
+        }
+
+        itemSchema = schema;
+        return false;
+    }
+
     private sealed record TableRow(string Path, string Type, string Required, string DefaultValue, string Description);
+
+    private sealed record SessionTypeReference(string SchemaPropertyName, string DocsSlug, string Title);
 
     private static class SchemaTraversal
     {

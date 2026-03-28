@@ -44,10 +44,11 @@ internal sealed class HookReferenceRenderer
             {
                 var docsSlug = Path.GetFileName(hookDirectory);
                 var overviewPath = Path.Combine(hookDirectory, "overview.md");
+                var existingOverviewBody = await LoadExistingOverviewBodyAsync(overviewPath);
                 var summary = await LoadHookSummaryAsync(sourceRoot, docsSlug);
                 if (string.IsNullOrWhiteSpace(summary))
                 {
-                    summary = await LoadExistingOverviewBodyAsync(overviewPath);
+                    summary = existingOverviewBody;
                 }
 
                 if (string.IsNullOrWhiteSpace(summary))
@@ -56,10 +57,12 @@ internal sealed class HookReferenceRenderer
                         $"Hook '{docsSlug}' in '{kind}' is missing a public XML summary in {sourceRoot}.");
                 }
 
+                var customOverviewContent = ExtractCustomOverviewContent(existingOverviewBody, summary);
+
                 documents.Add(new GeneratedDocument(
                     $"{spec.DocsRoot}/{docsSlug}/overview.md",
                     GeneratedDocumentHasher.WithHeader(
-                        RenderOverviewPage(docsSlug, summary),
+                        RenderOverviewPage(docsSlug, summary, customOverviewContent),
                         [kind, docsSlug, "overview"])));
 
                 if (!catalog.TryGetValue($"{kind}|{docsSlug}", out var hookCatalogEntry))
@@ -334,17 +337,58 @@ internal sealed class HookReferenceRenderer
         return genericMarkerIndex >= 0 ? trimmed[..genericMarkerIndex] : trimmed;
     }
 
-    private static string RenderOverviewPage(string title, string summary)
+    private static string? ExtractCustomOverviewContent(string? existingOverviewBody, string summary)
     {
-        return string.Join(
-            GeneratedDocumentLineEndings.Canonical,
-            [
-                $"# {title}",
-                string.Empty,
-                summary,
-                string.Empty,
-                "_This overview is generated automatically from the hook source summary._"
-            ]);
+        if (string.IsNullOrWhiteSpace(existingOverviewBody))
+        {
+            return null;
+        }
+
+        var normalizedBody = existingOverviewBody
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Trim();
+        var normalizedSummary = summary
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Trim();
+
+        if (string.Equals(normalizedBody, normalizedSummary, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (normalizedBody.StartsWith(normalizedSummary, StringComparison.Ordinal))
+        {
+            var remainder = normalizedBody[normalizedSummary.Length..].Trim();
+            return string.IsNullOrWhiteSpace(remainder) ? null : remainder;
+        }
+
+        var firstHeadingIndex = normalizedBody.IndexOf("\n## ", StringComparison.Ordinal);
+        if (firstHeadingIndex >= 0)
+        {
+            return normalizedBody[(firstHeadingIndex + 1)..].Trim();
+        }
+
+        return normalizedBody.StartsWith("## ", StringComparison.Ordinal)
+            ? normalizedBody
+            : null;
+    }
+
+    private static string RenderOverviewPage(string title, string summary, string? customOverviewContent)
+    {
+        var lines = new List<string>
+        {
+            $"# {title}",
+            string.Empty,
+            summary
+        };
+
+        if (!string.IsNullOrWhiteSpace(customOverviewContent))
+        {
+            lines.Add(string.Empty);
+            lines.Add(customOverviewContent);
+        }
+
+        return string.Join(GeneratedDocumentLineEndings.Canonical, lines);
     }
 
     private static string RenderTableView(string title, HookSchemaDocument hookSchema)
