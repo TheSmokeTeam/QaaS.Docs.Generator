@@ -1,6 +1,7 @@
 using QaaS.Docs.Generator.Cli;
 using QaaS.Docs.Generator.Functions;
 using QaaS.Docs.Generator.Hooks;
+using QaaS.Docs.Generator.Navigation;
 using QaaS.Docs.Generator.Schema;
 
 namespace QaaS.Docs.Generator;
@@ -40,7 +41,18 @@ internal static class Program
             documents.AddRange(new CliReferenceRenderer().RenderMocker(mockerCliCatalog));
             documents.AddRange(new ConfigurationReferenceRenderer().RenderRunner(runnerSchemaDocs));
             documents.AddRange(new ConfigurationReferenceRenderer().RenderMocker(mockerSchemaDocs));
-            documents.AddRange(await new HookReferenceRenderer().RenderAsync(options.DocsRoot, options.MirrorRoot));
+            var hookDocuments = await new HookReferenceRenderer().RenderAsync(options.DocsRoot, options.MirrorRoot);
+            if (options.Check)
+            {
+                // Hook overviews are post-processed by qaas-docs/scripts/Update-HookOverviews.ps1,
+                // so check mode validates their final rendered form there instead of comparing the
+                // intermediate generator output here.
+                hookDocuments = hookDocuments
+                    .Where(document => !IsHookOverviewDocument(document.RelativePath))
+                    .ToList();
+            }
+
+            documents.AddRange(hookDocuments);
             documents.AddRange(new FunctionReferenceRenderer().Render(functionCatalog));
 
             var failures = writer.Write(documents);
@@ -54,6 +66,8 @@ internal static class Program
                 return 2;
             }
 
+            new MkDocsNavigationRenderer().Update(options.DocsRoot, options.Check);
+
             Console.WriteLine(
                 "{0} {1} generated documents.",
                 options.Check ? "Validated" : "Wrote",
@@ -65,6 +79,20 @@ internal static class Program
             Console.Error.WriteLine(exception);
             return 3;
         }
+    }
+
+    private static bool IsHookOverviewDocument(string relativePath)
+    {
+        var normalizedPath = relativePath.Replace('\\', '/');
+        if (!normalizedPath.EndsWith("/overview.md", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return normalizedPath.StartsWith("assertions/availableAssertions/", StringComparison.Ordinal) ||
+               normalizedPath.StartsWith("generators/availableGenerators/", StringComparison.Ordinal) ||
+               normalizedPath.StartsWith("probes/availableProbes/", StringComparison.Ordinal) ||
+               normalizedPath.StartsWith("processors/availableProcessors/", StringComparison.Ordinal);
     }
 }
 

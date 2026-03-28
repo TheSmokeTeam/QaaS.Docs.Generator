@@ -11,13 +11,16 @@ namespace QaaS.Docs.Generator.Hooks;
 
 internal sealed class HookReferenceRenderer
 {
+    private const string GeneratedCatalogStart = "<!-- generated hook catalog start -->";
+    private const string GeneratedCatalogEnd = "<!-- generated hook catalog end -->";
+
     private static readonly IReadOnlyDictionary<string, HookKindSpec> KindSpecs =
         new Dictionary<string, HookKindSpec>(StringComparer.Ordinal)
         {
-            ["assertion"] = new("assertions/availableAssertions", "QaaS.Common.Assertions"),
-            ["generator"] = new("generators/availableGenerators", "QaaS.Common.Generators"),
-            ["probe"] = new("probes/availableProbes", "QaaS.Common.Probes"),
-            ["processor"] = new("processors/availableProcessors", "QaaS.Common.Processors")
+            ["assertion"] = new("assertions/availableAssertions", "assertions/index.md", "Assertions", "QaaS.Common.Assertions"),
+            ["generator"] = new("generators/availableGenerators", "generators/index.md", "Generators", "QaaS.Common.Generators"),
+            ["probe"] = new("probes/availableProbes", "probes/index.md", "Probes", "QaaS.Common.Probes"),
+            ["processor"] = new("processors/availableProcessors", "processors/index.md", "Processors", "QaaS.Common.Processors")
         };
 
     public async Task<IReadOnlyList<GeneratedDocument>> RenderAsync(string docsRoot, string mirrorRoot)
@@ -29,6 +32,7 @@ internal sealed class HookReferenceRenderer
         foreach (var kind in KindSpecs.Keys.OrderBy(candidate => candidate, StringComparer.Ordinal))
         {
             var spec = KindSpecs[kind];
+            var groupedHooks = new List<HookIndexEntry>();
             var hooksRoot = Path.Combine(
                 docsRoot,
                 "docs",
@@ -45,7 +49,8 @@ internal sealed class HookReferenceRenderer
                 var docsSlug = Path.GetFileName(hookDirectory);
                 var overviewPath = Path.Combine(hookDirectory, "overview.md");
                 var existingOverviewBody = await LoadExistingOverviewBodyAsync(overviewPath);
-                var summary = await LoadHookSummaryAsync(sourceRoot, docsSlug);
+                var documentation = await LoadHookDocumentationAsync(sourceRoot, docsSlug);
+                var summary = documentation.Summary;
                 if (string.IsNullOrWhiteSpace(summary))
                 {
                     summary = existingOverviewBody;
@@ -58,12 +63,14 @@ internal sealed class HookReferenceRenderer
                 }
 
                 var customOverviewContent = ExtractCustomOverviewContent(existingOverviewBody, summary);
+                var placement = documentation.Placement ?? InferPlacement(kind, docsSlug);
+                groupedHooks.Add(new HookIndexEntry(docsSlug, summary, placement.Group, placement.Subgroup));
 
                 documents.Add(new GeneratedDocument(
                     $"{spec.DocsRoot}/{docsSlug}/overview.md",
                     GeneratedDocumentHasher.WithHeader(
-                        RenderOverviewPage(docsSlug, summary, customOverviewContent),
-                        [kind, docsSlug, "overview"])));
+                        RenderOverviewPage(docsSlug, summary, placement, customOverviewContent),
+                        [kind, docsSlug, "overview", placement.Group, placement.Subgroup])));
 
                 if (!catalog.TryGetValue($"{kind}|{docsSlug}", out var hookCatalogEntry))
                 {
@@ -87,6 +94,23 @@ internal sealed class HookReferenceRenderer
                     GeneratedDocumentHasher.WithHeader(
                         RenderYamlView(docsSlug, hookSchema),
                         [hookCatalogEntry.FamilyId, docsSlug, "yaml-view"])));
+            }
+
+            if (groupedHooks.Count != 0)
+            {
+                var indexFullPath = Path.Combine(
+                    docsRoot,
+                    "docs",
+                    spec.IndexRelativePath.Replace('/', Path.DirectorySeparatorChar));
+                var existingIndexContent = File.Exists(indexFullPath)
+                    ? await File.ReadAllTextAsync(indexFullPath)
+                    : $"# {spec.DisplayTitle}";
+
+                documents.Add(new GeneratedDocument(
+                    spec.IndexRelativePath,
+                    GeneratedDocumentHasher.WithHeader(
+                        RenderIndexPage(kind, spec, existingIndexContent, groupedHooks),
+                        [kind, "index"])));
             }
         }
 
@@ -156,12 +180,12 @@ internal sealed class HookReferenceRenderer
         return entries;
     }
 
-    private static async Task<string?> LoadHookSummaryAsync(string sourceRoot, string docsSlug)
+    private static async Task<HookDocumentation> LoadHookDocumentationAsync(string sourceRoot, string docsSlug)
     {
         var sourceFile = FindHookSourceFile(sourceRoot, docsSlug);
         if (sourceFile is null)
         {
-            return null;
+            return new HookDocumentation(null, null);
         }
 
         var text = await File.ReadAllTextAsync(sourceFile);
@@ -172,11 +196,12 @@ internal sealed class HookReferenceRenderer
             .FirstOrDefault(candidate => string.Equals(candidate.Identifier.Text, docsSlug, StringComparison.Ordinal));
         if (typeDeclaration is null)
         {
-            return null;
+            return new HookDocumentation(null, null);
         }
 
-        var summary = DocumentationCommentParser.Parse(typeDeclaration).Summary;
-        return string.IsNullOrWhiteSpace(summary) ? null : summary;
+        var documentation = DocumentationCommentParser.Parse(typeDeclaration);
+        var summary = string.IsNullOrWhiteSpace(documentation.Summary) ? null : documentation.Summary;
+        return new HookDocumentation(summary, documentation.Placement);
     }
 
     private static string? FindHookSourceFile(string sourceRoot, string docsSlug)
@@ -373,13 +398,24 @@ internal sealed class HookReferenceRenderer
             : null;
     }
 
-    private static string RenderOverviewPage(string title, string summary, string? customOverviewContent)
+    private static DocsPlacement InferPlacement(string kind, string docsSlug)
+    {
+        return new DocsPlacement("Other", docsSlug);
+    }
+
+    private static string RenderOverviewPage(
+        string title,
+        string summary,
+        DocsPlacement placement,
+        string? customOverviewContent)
     {
         var lines = new List<string>
         {
             $"# {title}",
             string.Empty,
-            summary
+            summary,
+            string.Empty,
+            $"> Logical group: {placement.Group} / {placement.Subgroup}"
         };
 
         if (!string.IsNullOrWhiteSpace(customOverviewContent))
@@ -389,6 +425,86 @@ internal sealed class HookReferenceRenderer
         }
 
         return string.Join(GeneratedDocumentLineEndings.Canonical, lines);
+    }
+
+    private static string RenderIndexPage(
+        string kind,
+        HookKindSpec spec,
+        string existingContent,
+        IReadOnlyList<HookIndexEntry> entries)
+    {
+        var relativeHooksRoot = spec.DocsRoot.Split('/').Last();
+        var builder = new StringBuilder();
+        builder.AppendLine(StripGeneratedCatalog(existingContent).TrimEnd());
+        builder.AppendLine();
+        builder.AppendLine();
+        builder.AppendLine(GeneratedCatalogStart);
+        builder.AppendLine("## Available Hooks");
+        builder.AppendLine();
+        builder.AppendLine("The built-in hooks below are grouped by implementation type so it is easier to shortlist the right hook before drilling into configuration details.");
+
+        foreach (var group in entries
+                     .GroupBy(entry => entry.Group, StringComparer.Ordinal)
+                     .OrderBy(group => GroupOrder(kind, group.Key))
+                     .ThenBy(group => group.Key, StringComparer.Ordinal))
+        {
+            builder.AppendLine();
+            builder.AppendLine($"### {group.Key}");
+            builder.AppendLine();
+
+            foreach (var entry in group
+                         .OrderBy(candidate => candidate.Subgroup, StringComparer.Ordinal)
+                         .ThenBy(candidate => candidate.DocsSlug, StringComparer.Ordinal))
+            {
+                builder.AppendLine(
+                    $"- [{entry.DocsSlug}]({relativeHooksRoot}/{entry.DocsSlug}/overview.md): {entry.Subgroup}. {LeadParagraph(entry.Summary)}");
+            }
+        }
+
+        builder.AppendLine();
+        builder.AppendLine(GeneratedCatalogEnd);
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string StripGeneratedCatalog(string content)
+    {
+        var normalized = content
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .TrimEnd();
+        var startIndex = normalized.IndexOf(GeneratedCatalogStart, StringComparison.Ordinal);
+        if (startIndex < 0)
+        {
+            return normalized;
+        }
+
+        var endIndex = normalized.IndexOf(GeneratedCatalogEnd, startIndex, StringComparison.Ordinal);
+        return endIndex < 0
+            ? normalized[..startIndex].TrimEnd()
+            : normalized[..startIndex].TrimEnd();
+    }
+
+    private static string LeadParagraph(string summary)
+    {
+        return summary
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split("\n\n", StringSplitOptions.RemoveEmptyEntries)[0]
+            .Replace('\n', ' ')
+            .Trim();
+    }
+
+    private static int GroupOrder(string kind, string group)
+    {
+        string[] orderedGroups = kind switch
+        {
+            "assertion" => ["Latency", "Hermeticity", "Content validation", "Contract validation", "Transport metadata"],
+            "generator" => ["External sources", "Existing data sources", "Structured payloads"],
+            "probe" => ["RabbitMQ administration", "Redis maintenance", "Document stores", "Object storage", "SQL maintenance", "Cluster orchestration"],
+            "processor" => ["Static responses", "Request-derived responses", "Transformations", "Data-driven responses", "Error responses"],
+            _ => []
+        };
+
+        var index = Array.FindIndex(orderedGroups, candidate => string.Equals(candidate, group, StringComparison.Ordinal));
+        return index >= 0 ? index : orderedGroups.Length;
     }
 
     private static string RenderTableView(string title, HookSchemaDocument hookSchema)
@@ -431,7 +547,7 @@ internal sealed class HookReferenceRenderer
             .Replace("\n", "<br />", StringComparison.Ordinal);
     }
 
-    private sealed record HookKindSpec(string DocsRoot, string RepositoryDirectory);
+    private sealed record HookKindSpec(string DocsRoot, string IndexRelativePath, string DisplayTitle, string RepositoryDirectory);
 
     private sealed record HookCatalogFile(IReadOnlyList<HookCatalogHookType> HookTypes);
 
@@ -446,6 +562,10 @@ internal sealed class HookReferenceRenderer
         string DocsSlug,
         string FamilyId,
         string ConfigurationSchemaJsonPointer);
+
+    private sealed record HookDocumentation(string? Summary, DocsPlacement? Placement);
+
+    private sealed record HookIndexEntry(string DocsSlug, string Summary, string Group, string Subgroup);
 
     private sealed record HookSchemaDocument(string RootName, bool Required, JsonSchema Schema);
 
