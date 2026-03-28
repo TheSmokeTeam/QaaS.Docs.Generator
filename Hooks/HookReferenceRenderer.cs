@@ -37,16 +37,12 @@ internal sealed class HookReferenceRenderer
                 docsRoot,
                 "docs",
                 spec.DocsRoot.Replace('/', Path.DirectorySeparatorChar));
-            if (!Directory.Exists(hooksRoot))
-            {
-                continue;
-            }
 
             var sourceRoot = Path.Combine(workspaceRoot, spec.RepositoryDirectory);
-            foreach (var hookDirectory in Directory.EnumerateDirectories(hooksRoot)
-                         .OrderBy(candidate => candidate, StringComparer.Ordinal))
+            var docsSlugs = EnumerateDocsSlugs(hooksRoot, catalog, kind);
+            foreach (var docsSlug in docsSlugs)
             {
-                var docsSlug = Path.GetFileName(hookDirectory);
+                var hookDirectory = Path.Combine(hooksRoot, docsSlug);
                 var overviewPath = Path.Combine(hookDirectory, "overview.md");
                 var existingOverviewBody = await LoadExistingOverviewBodyAsync(overviewPath);
                 var documentation = await LoadHookDocumentationAsync(sourceRoot, docsSlug);
@@ -190,6 +186,28 @@ internal sealed class HookReferenceRenderer
 
         var text = await File.ReadAllTextAsync(sourceFile);
         return ParseHookDocumentation(text, sourceFile, docsSlug);
+    }
+
+    private static IReadOnlyList<string> EnumerateDocsSlugs(
+        string hooksRoot,
+        IReadOnlyDictionary<string, HookCatalogEntry> catalog,
+        string kind)
+    {
+        var catalogSlugs = catalog.Values
+            .Where(entry => string.Equals(entry.Kind, kind, StringComparison.Ordinal))
+            .Select(entry => entry.DocsSlug);
+        var existingSlugs = Directory.Exists(hooksRoot)
+            ? Directory.EnumerateDirectories(hooksRoot)
+                .Select(Path.GetFileName)
+                .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
+                .Cast<string>()
+            : [];
+
+        return catalogSlugs
+            .Concat(existingSlugs)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(candidate => candidate, StringComparer.Ordinal)
+            .ToList();
     }
 
     internal static HookDocumentation ParseHookDocumentation(string sourceText, string sourceFile, string docsSlug)
