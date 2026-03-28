@@ -16,6 +16,9 @@ internal sealed record DocsToolContext(
     string ProcessorsRoot,
     string ResourcesRoot)
 {
+    /// <summary>
+    /// Resolves the docs repository root plus the sibling repository paths used by the docs commands.
+    /// </summary>
     public static DocsToolContext Create(CommandArguments arguments)
     {
         var docsRoot = arguments.GetOptionalPath("--docs-root") ?? FindDocsRoot();
@@ -36,6 +39,9 @@ internal sealed record DocsToolContext(
             resourcesRoot);
     }
 
+    /// <summary>
+    /// Finds the qaas-docs repository root from the compiled tool output location.
+    /// </summary>
     private static string FindDocsRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);
@@ -52,6 +58,9 @@ internal sealed record DocsToolContext(
         throw new DirectoryNotFoundException("Could not locate the qaas-docs repository root.");
     }
 
+    /// <summary>
+    /// Locates the embedded resource directory regardless of whether the tool is run from source or build output.
+    /// </summary>
     private static string FindResourcesRoot()
     {
         var searchRoots = new[]
@@ -79,6 +88,9 @@ internal sealed record DocsToolContext(
             $"Could not locate the QaaS.Docs.Tools resource catalog starting from '{AppContext.BaseDirectory}'.");
     }
 
+    /// <summary>
+    /// Enumerates the supported resource directory layouts used in source and build output.
+    /// </summary>
     private static IEnumerable<string> EnumerateCandidateDirectories(string root)
     {
         yield return Path.Combine(root, "Resources");

@@ -3,8 +3,14 @@ using QaaS.Docs.Tools.Infrastructure;
 
 namespace QaaS.Docs.Tools;
 
+/// <summary>
+/// Hosts the documented docs-maintenance CLI that replaced the repository-owned PowerShell scripts.
+/// </summary>
 internal static class Program
 {
+    /// <summary>
+    /// Dispatches the requested docs-maintenance command.
+    /// </summary>
     public static async Task<int> Main(string[] args)
     {
         if (args.Length == 0)
@@ -37,6 +43,9 @@ internal static class Program
         }
     }
 
+    /// <summary>
+    /// Reports an unknown command and prints the global usage text.
+    /// </summary>
     private static int PrintUnknownCommand(string commandName)
     {
         Console.Error.WriteLine($"Unknown command '{commandName}'.");
@@ -44,6 +53,9 @@ internal static class Program
         return 1;
     }
 
+    /// <summary>
+    /// Prints command-specific help when requested, otherwise prints the top-level usage text.
+    /// </summary>
     private static int PrintHelp(CommandArguments arguments)
     {
         if (arguments.TryGetSingleValue("--command", out var commandName))
@@ -56,6 +68,9 @@ internal static class Program
         return 0;
     }
 
+    /// <summary>
+    /// Prints the top-level command list with a one-line description for each operation.
+    /// </summary>
     private static void PrintUsage()
     {
         Console.WriteLine("Usage: dotnet run --project tools/QaaS.Docs.Generator/QaaS.Docs.Tools/QaaS.Docs.Tools.csproj -- <command> [options]");
@@ -70,6 +85,9 @@ internal static class Program
         Console.WriteLine("Use 'help --command <name>' to print per-command options.");
     }
 
+    /// <summary>
+    /// Prints the options accepted by a single command.
+    /// </summary>
     private static void PrintCommandUsage(string commandName)
     {
         var commonPathOptions = string.Join(

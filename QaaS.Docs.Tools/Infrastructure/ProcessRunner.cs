@@ -8,6 +8,9 @@ namespace QaaS.Docs.Tools.Infrastructure;
 /// </summary>
 internal static class ProcessRunner
 {
+    /// <summary>
+    /// Runs an external process and returns its captured stdout, stderr, and formatted command text.
+    /// </summary>
     public static async Task<ProcessResult> RunAsync(
         string fileName,
         IReadOnlyList<string> arguments,
@@ -58,6 +61,9 @@ internal static class ProcessRunner
         return result;
     }
 
+    /// <summary>
+    /// Escapes a single argument for diagnostic output.
+    /// </summary>
     private static string EscapeArgument(string argument)
     {
         return argument.Contains(' ', StringComparison.Ordinal)
@@ -66,8 +72,14 @@ internal static class ProcessRunner
     }
 }
 
+/// <summary>
+/// Captures the outcome of an executed external process.
+/// </summary>
 internal sealed record ProcessResult(int ExitCode, string StandardOutput, string StandardError, string CommandText)
 {
+    /// <summary>
+    /// Formats the process result into a readable exception/error message.
+    /// </summary>
     public string ToDisplayString()
     {
         var builder = new StringBuilder();

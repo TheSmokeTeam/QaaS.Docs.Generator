@@ -17,8 +17,14 @@ internal sealed class HookOverviewCatalog
         _entries = entries;
     }
 
+    /// <summary>
+    /// Gets the curated hook-overview entries loaded from the JSON catalog.
+    /// </summary>
     public IReadOnlyList<HookOverviewEntry> Entries => _entries;
 
+    /// <summary>
+    /// Loads the catalog from the tool resource directory.
+    /// </summary>
     public static async Task<HookOverviewCatalog> LoadAsync(string resourcesRoot)
     {
         var path = Path.Combine(resourcesRoot, "hook-overviews.json");

@@ -9,6 +9,9 @@ internal sealed class CommandArguments
     private readonly Dictionary<string, List<string>> _values = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _flags = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Parses the raw CLI token list into named values and switch flags.
+    /// </summary>
     public static CommandArguments Parse(IEnumerable<string> args)
     {
         var parsed = new CommandArguments();
@@ -40,8 +43,14 @@ internal sealed class CommandArguments
         return parsed;
     }
 
+    /// <summary>
+    /// Returns <see langword="true"/> when a switch-style option is present.
+    /// </summary>
     public bool HasFlag(string name) => _flags.Contains(name);
 
+    /// <summary>
+    /// Reads the last supplied value for an option when one exists.
+    /// </summary>
     public bool TryGetSingleValue(string name, out string value)
     {
         if (_values.TryGetValue(name, out var entries) && entries.Count != 0)
@@ -54,6 +63,9 @@ internal sealed class CommandArguments
         return false;
     }
 
+    /// <summary>
+    /// Reads and normalizes an optional path value.
+    /// </summary>
     public string? GetOptionalPath(string name)
     {
         return TryGetSingleValue(name, out var value)
@@ -61,6 +73,9 @@ internal sealed class CommandArguments
             : null;
     }
 
+    /// <summary>
+    /// Returns every supplied value for a repeated option.
+    /// </summary>
     public IReadOnlyList<string> GetValues(string name)
     {
         return _values.TryGetValue(name, out var entries)
