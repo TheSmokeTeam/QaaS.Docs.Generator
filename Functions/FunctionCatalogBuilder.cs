@@ -404,8 +404,29 @@ internal sealed class FunctionReferenceRenderer
         builder.AppendLine($"# {category.Subgroup}");
         builder.AppendLine();
         builder.AppendLine("Each entry uses the short function name as the table-of-contents label. Expand an entry to inspect its source file, signature, and XML doc comments.");
+        var sections = entries
+            .GroupBy(ResolveSection, StringComparer.Ordinal)
+            .OrderBy(group => SectionOrder(group.Key))
+            .ThenBy(group => group.Key, StringComparer.Ordinal)
+            .ToList();
+        var renderSectionHeadings = sections.Count > 1;
 
-        RenderFunctionSections(builder, entries, headingLevel: 2);
+        if (renderSectionHeadings)
+        {
+            builder.AppendLine();
+            builder.AppendLine("The functions on this page are grouped by responsibility so related operations stay together.");
+        }
+
+        foreach (var section in sections)
+        {
+            builder.AppendLine();
+            if (renderSectionHeadings)
+            {
+                builder.AppendLine($"## {section.Key}");
+            }
+
+            RenderFunctionSections(builder, section.ToList(), headingLevel: renderSectionHeadings ? 3 : 2);
+        }
 
         return builder.ToString().TrimEnd();
     }
@@ -506,6 +527,75 @@ internal sealed class FunctionReferenceRenderer
             : entry.DeclaringType;
     }
 
+    private static string ResolveSection(FunctionEntry entry)
+    {
+        var shortName = entry.ShortName;
+
+        if (shortName is "Named" or "HookNamed")
+        {
+            return "Identity and hook selection";
+        }
+
+        if (shortName == "AtStage")
+        {
+            return "Execution order";
+        }
+
+        if (shortName.StartsWith("ReportOnly", StringComparison.Ordinal) ||
+            shortName.StartsWith("WeatherTo", StringComparison.Ordinal) ||
+            shortName.Contains("Trace", StringComparison.Ordinal) ||
+            shortName.Contains("Attachment", StringComparison.Ordinal) ||
+            shortName.Contains("Log", StringComparison.Ordinal) ||
+            shortName.Contains("ConfigurationTemplate", StringComparison.Ordinal) ||
+            shortName.Contains("SessionData", StringComparison.Ordinal))
+        {
+            return "Reporting and artifacts";
+        }
+
+        if (shortName.Contains("Severity", StringComparison.Ordinal) ||
+            shortName.Contains("Category", StringComparison.Ordinal))
+        {
+            return "Classification";
+        }
+
+        foreach (var (needle, section) in ResourceSections)
+        {
+            if (shortName.Contains(needle, StringComparison.Ordinal))
+            {
+                return section;
+            }
+        }
+
+        if (shortName.StartsWith("Read", StringComparison.Ordinal))
+        {
+            return "Inspection";
+        }
+
+        if (shortName.StartsWith("Add", StringComparison.Ordinal) ||
+            shortName.StartsWith("Create", StringComparison.Ordinal) ||
+            shortName.StartsWith("Update", StringComparison.Ordinal) ||
+            shortName.StartsWith("Delete", StringComparison.Ordinal) ||
+            shortName.StartsWith("Remove", StringComparison.Ordinal))
+        {
+            return "Collection helpers";
+        }
+
+        if (shortName.StartsWith("With", StringComparison.Ordinal) ||
+            shortName.StartsWith("Use", StringComparison.Ordinal) ||
+            shortName.StartsWith("Set", StringComparison.Ordinal))
+        {
+            return "Configuration";
+        }
+
+        return "General";
+    }
+
+    private static int SectionOrder(string section)
+    {
+        var index = Array.FindIndex(SectionOrderList, candidate => string.Equals(candidate, section, StringComparison.Ordinal));
+        return index >= 0 ? index : SectionOrderList.Length;
+    }
+
     private static void AppendIndentedMarkdownBlock(StringBuilder builder, string text, int indentation)
     {
         var indent = new string(' ', indentation);
@@ -603,6 +693,64 @@ internal sealed class FunctionReferenceRenderer
     }
 
     private sealed record RenderedFunctionEntry(FunctionEntry Entry, FunctionPagePlacement Placement);
+
+    private static readonly (string Needle, string Section)[] ResourceSections =
+    [
+        ("DataSource", "Data source selection"),
+        ("Session", "Session selection"),
+        ("Input", "Input selection"),
+        ("Output", "Output selection"),
+        ("Link", "Links"),
+        ("Storage", "Storages"),
+        ("Policy", "Policies"),
+        ("Assertion", "Assertions"),
+        ("Probe", "Probes"),
+        ("Publisher", "Publishers"),
+        ("Consumer", "Consumers"),
+        ("Transaction", "Transactions"),
+        ("Collector", "Collectors"),
+        ("Server", "Servers"),
+        ("Stub", "Transaction stubs"),
+        ("Stage", "Stages"),
+        ("Execution", "Executions"),
+        ("Context", "Contexts"),
+        ("Placeholder", "Placeholders"),
+        ("Yaml", "YAML configuration"),
+        ("Enumerable", "Enumerables")
+    ];
+
+    private static readonly string[] SectionOrderList =
+    [
+        "Identity and hook selection",
+        "Execution order",
+        "Classification",
+        "Data source selection",
+        "Session selection",
+        "Input selection",
+        "Output selection",
+        "Links",
+        "Storages",
+        "Policies",
+        "Assertions",
+        "Probes",
+        "Publishers",
+        "Consumers",
+        "Transactions",
+        "Collectors",
+        "Servers",
+        "Transaction stubs",
+        "Stages",
+        "Executions",
+        "Contexts",
+        "Placeholders",
+        "YAML configuration",
+        "Enumerables",
+        "Configuration",
+        "Reporting and artifacts",
+        "Inspection",
+        "Collection helpers",
+        "General"
+    ];
 
     private sealed record FunctionPagePlacement(string DisplayGroup, string? PathGroup, string Subgroup) : IComparable<FunctionPagePlacement>
     {
