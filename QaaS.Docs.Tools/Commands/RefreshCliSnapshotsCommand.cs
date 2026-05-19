@@ -44,6 +44,12 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
             var frameworkFeedRoot = Path.Combine(tempRoot, "framework-feed");
             var restorePackagesRoot = Path.Combine(tempRoot, "packages");
             var restoreConfigPath = Path.Combine(tempRoot, "NuGet.Config");
+            var nugetSourceUrl = Environment.GetEnvironmentVariable("QAAS_NUGET_SOURCE_URL");
+            if (string.IsNullOrWhiteSpace(nugetSourceUrl))
+            {
+                nugetSourceUrl = "https://api.nuget.org/v3/index.json";
+            }
+
             Directory.CreateDirectory(frameworkFeedRoot);
             Directory.CreateDirectory(restorePackagesRoot);
 
@@ -55,7 +61,7 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
                   <packageSources>
                     <clear />
                     <add key="framework-feed" value="{{XmlEscape(frameworkFeedRoot)}}" />
-                    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
+                    <add key="qaas-package-source" value="{{XmlEscape(nugetSourceUrl)}}" protocolVersion="3" />
                   </packageSources>
                 </configuration>
                 """);
