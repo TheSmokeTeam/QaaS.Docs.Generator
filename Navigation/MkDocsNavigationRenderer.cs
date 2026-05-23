@@ -114,21 +114,46 @@ internal sealed class MkDocsNavigationRenderer
         {
             builder.AppendLine($"{indent}- {group.Title}:");
 
+            // When a group has exactly one page whose title equals the group
+            // title, the wrapper page level duplicates the group label. Flatten
+            // the page into the group so the nav reads as a single section
+            // rather than "Extension Methods / Extension Methods / Overview".
+            var pageIndent = indent + "  ";
+            var flattenSinglePage =
+                group.Pages.Count == 1
+                && string.Equals(group.Pages[0].Title, group.Title, StringComparison.Ordinal);
+
             foreach (var page in group.Pages)
             {
-                var pageIndent = indent + "  ";
                 if (page.ParsedPage.Sections.Count == 0)
                 {
-                    builder.AppendLine($"{pageIndent}- {page.Title}: {page.RelativePath}");
+                    if (flattenSinglePage)
+                    {
+                        builder.AppendLine($"{pageIndent}- Overview: {page.RelativePath}");
+                    }
+                    else
+                    {
+                        builder.AppendLine($"{pageIndent}- {page.Title}: {page.RelativePath}");
+                    }
                     continue;
                 }
 
-                builder.AppendLine($"{pageIndent}- {page.Title}:");
-                builder.AppendLine($"{pageIndent}  - Overview: {page.RelativePath}");
+                int sectionIndentation;
+                if (flattenSinglePage)
+                {
+                    builder.AppendLine($"{pageIndent}- Overview: {page.RelativePath}");
+                    sectionIndentation = spec.Indentation + 2;
+                }
+                else
+                {
+                    builder.AppendLine($"{pageIndent}- {page.Title}:");
+                    builder.AppendLine($"{pageIndent}  - Overview: {page.RelativePath}");
+                    sectionIndentation = spec.Indentation + 4;
+                }
 
                 foreach (var section in page.ParsedPage.Sections)
                 {
-                    RenderSectionNav(builder, page, section, spec.Indentation + 4, []);
+                    RenderSectionNav(builder, page, section, sectionIndentation, []);
                 }
             }
         }
@@ -147,13 +172,26 @@ internal sealed class MkDocsNavigationRenderer
         var indent = Indent(indentation);
         var sectionPath = GetSectionRelativePath(page.RelativePath, ancestors.Append(section.Slug).ToList());
 
+        // Special-case: the "Extension Methods" overview page contains a top-
+        // level "## Extension Methods" section that re-declares the page
+        // label. MkDocs renders the resulting nav node as "Extension Methods /
+        // Extension Methods / Overview" — collapse the inner label to
+        // "Methods" so the nav reads as a single section. The on-page H2 is
+        // left as-is.
+        var sectionTitle =
+            ancestors.Count == 0
+            && string.Equals(section.Title, "Extension Methods", StringComparison.Ordinal)
+            && string.Equals(page.Title, "Extension Methods", StringComparison.Ordinal)
+                ? "Methods"
+                : section.Title;
+
         if (section.Children.Count == 0)
         {
-            builder.AppendLine($"{indent}- {section.Title}: {sectionPath}");
+            builder.AppendLine($"{indent}- {sectionTitle}: {sectionPath}");
             return;
         }
 
-        builder.AppendLine($"{indent}- {section.Title}:");
+        builder.AppendLine($"{indent}- {sectionTitle}:");
         builder.AppendLine($"{indent}  - Overview: {sectionPath}");
 
         foreach (var child in section.Children)
