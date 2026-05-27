@@ -43,6 +43,10 @@ internal sealed class GeneratedDocumentWriter
             }
 
             var fullPath = Path.Combine(_docsRoot, "docs", document.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            normalizedContent = MarkdownFrontmatter.ApplyExistingOrDefault(
+                fullPath,
+                document.RelativePath,
+                normalizedContent);
 
             if (_dryRun)
             {
@@ -66,6 +70,109 @@ internal sealed class GeneratedDocumentWriter
         }
 
         return failures;
+    }
+}
+
+internal static class MarkdownFrontmatter
+{
+    public static string ApplyExistingOrDefault(string fullPath, string relativePath, string generatedContent)
+    {
+        var normalizedContent = GeneratedDocumentLineEndings.Normalize(generatedContent);
+        if (TryExtract(normalizedContent, out _))
+        {
+            return normalizedContent;
+        }
+
+        if (File.Exists(fullPath))
+        {
+            var existingContent = GeneratedDocumentLineEndings.Normalize(File.ReadAllText(fullPath));
+            if (TryExtract(existingContent, out var existingFrontmatter))
+            {
+                return Combine(existingFrontmatter, normalizedContent);
+            }
+        }
+
+        return Combine(CreateDefault(relativePath, normalizedContent), normalizedContent);
+    }
+
+    private static bool TryExtract(string content, out string frontmatter)
+    {
+        frontmatter = string.Empty;
+        var normalized = content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\r", "\n", StringComparison.Ordinal);
+        if (!normalized.StartsWith("---\n", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var endIndex = normalized.IndexOf("\n---\n", 4, StringComparison.Ordinal);
+        if (endIndex < 0)
+        {
+            return false;
+        }
+
+        frontmatter = GeneratedDocumentLineEndings.Normalize(normalized[..(endIndex + "\n---\n".Length)].TrimEnd('\n'));
+        return true;
+    }
+
+    private static string Combine(string frontmatter, string body)
+    {
+        var normalizedFrontmatter = GeneratedDocumentLineEndings.Normalize(frontmatter).TrimEnd('\r', '\n');
+        var normalizedBody = GeneratedDocumentLineEndings.Normalize(body).TrimStart('\r', '\n');
+        return $"{normalizedFrontmatter}{GeneratedDocumentLineEndings.Canonical}{GeneratedDocumentLineEndings.Canonical}{normalizedBody}";
+    }
+
+    private static string CreateDefault(string relativePath, string generatedContent)
+    {
+        var normalizedPath = relativePath.Replace('\\', '/');
+        var title = ExtractTitle(generatedContent) ?? Path.GetFileNameWithoutExtension(normalizedPath);
+        var appliesTo = normalizedPath.Split('/', 2)[0] switch
+        {
+            "assertions" => "assertions",
+            "generators" => "generators",
+            "probes" => "probes",
+            "processors" => "processors",
+            "mocker" => "mocker",
+            "framework" => "framework",
+            "qaas" => "runner",
+            _ => "qaas"
+        };
+        var id = normalizedPath
+            .Replace(".md", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace('/', '.')
+            .Replace('-', '.');
+
+        return string.Join(
+            GeneratedDocumentLineEndings.Canonical,
+            [
+                "---",
+                $"id: {id}",
+                "type: reference",
+                "status: stable",
+                "since: 2.0.0",
+                "last_verified: 2026-05-27",
+                $"applies_to: [{appliesTo}]",
+                $"keywords: [{appliesTo}, reference]",
+                $"summary: \"Reference page for {EscapeYaml(title)}.\"",
+                "---"
+            ]);
+    }
+
+    private static string? ExtractTitle(string content)
+    {
+        foreach (var line in GeneratedDocumentLineEndings.Normalize(content).Split(GeneratedDocumentLineEndings.Canonical))
+        {
+            if (line.StartsWith("# ", StringComparison.Ordinal))
+            {
+                return line[2..].Trim();
+            }
+        }
+
+        return null;
+    }
+
+    private static string EscapeYaml(string value)
+    {
+        return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
     }
 }
 

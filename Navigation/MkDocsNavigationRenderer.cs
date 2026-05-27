@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using QaaS.Docs.Generator;
 
 namespace QaaS.Docs.Generator.Navigation;
 
@@ -402,7 +403,7 @@ internal sealed class MkDocsNavigationRenderer
         var outputFullPath = Path.Combine(docsRoot, "docs", outputRelativePath.Replace('/', Path.DirectorySeparatorChar));
 
         var expectedContent = RenderSectionPage(page.ParsedPage, section, ancestors, outputRelativePath);
-        WriteOrCheckFile(outputFullPath, expectedContent, check);
+        WriteOrCheckFile(outputFullPath, outputRelativePath, expectedContent, check);
 
         foreach (var child in section.Children)
         {
@@ -476,13 +477,15 @@ internal sealed class MkDocsNavigationRenderer
         }
     }
 
-    private static void WriteOrCheckFile(string fullPath, string content, bool check)
+    private static void WriteOrCheckFile(string fullPath, string relativePath, string content, bool check)
     {
         var normalizedContent = GeneratedDocumentLineEndings.Normalize(content);
         if (!normalizedContent.EndsWith(GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
         {
             normalizedContent += GeneratedDocumentLineEndings.Canonical;
         }
+
+        normalizedContent = MarkdownFrontmatter.ApplyExistingOrDefault(fullPath, relativePath, normalizedContent);
 
         if (check)
         {
