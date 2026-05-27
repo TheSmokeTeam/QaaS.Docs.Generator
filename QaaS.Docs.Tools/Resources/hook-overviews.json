@@ -19,7 +19,7 @@
         "Kind": "assertions",
         "Name": "HermeticByExpectedOutputCount",
         "Runtime": "runner",
-        "WhatItDoes": "Adds up the number of items found in the configured output names across every session given to the assertion and compares that total with one exact expected count.\r\n\r\nMissing output names simply contribute zero instead of throwing. That makes the assertion useful when you want a strict \"exactly N outputs were produced\" check over one session or over a filtered group of sessions.",
+        "WhatItDoes": "Adds up the number of items found in the configured output names across every session given to the assertion and compares that total with one exact expected count.\r\n\r\nMissing output names contribute zero instead of throwing. That makes the assertion useful when you want a strict \"exactly N outputs were produced\" check over one session or over a filtered group of sessions.",
         "YamlSnippet": "Sessions:\r\n  - Name: SampleSession\n\nAssertions:\r\n  - Name: HermeticByExpectedOutputCountAssertion\r\n    Assertion: HermeticByExpectedOutputCount\r\n    SessionNames:\r\n      - SampleSession\r\n\r\n    AssertionConfiguration:\r\n      OutputNames:\r\n        - Reply\r\n        - RetryReply\r\n      ExpectedCount: 3",
         "ConfigExplanation": "This assertion totals the number of saved items in `Reply` and `RetryReply` for `SampleSession` and expects the combined count to be exactly 3.\r\n\r\nIf one of those outputs is missing entirely it contributes zero. The assertion passes only when the final summed count equals 3."
     },
@@ -363,7 +363,7 @@
         "Kind": "probes",
         "Name": "DeleteRabbitMqQueues",
         "Runtime": "runner",
-        "WhatItDoes": "Deletes RabbitMQ queues through the AMQP connection defined in the probe configuration.\r\n\r\nThis is useful for queue cleanup when the queue should be removed entirely instead of just purged.",
+        "WhatItDoes": "Deletes RabbitMQ queues through the AMQP connection defined in the probe configuration.\r\n\r\nThis is useful for queue cleanup when the queue should be removed entirely rather than only purged.",
         "YamlSnippet": "Sessions:\r\n  - Name: ProbeSession\r\n    Probes:\r\n      - Name: DeleteRabbitMqQueuesProbe\r\n        Probe: DeleteRabbitMqQueues\r\n        ProbeConfiguration:\r\n          UseGlobalDict: true\r\n          Host: rabbitmq.local\r\n          Port: 5672\r\n          Username: guest\r\n          Password: guest\r\n          VirtualHost: /\r\n          QueueNames:\r\n            - orders.queue",
         "ConfigExplanation": "This probe deletes the `orders.queue` queue from the `/` virtual host.\r\n\r\nAny messages still in the queue are removed along with the queue itself.\r\n\r\n### Global Dictionary Behavior\r\n\r\nWith `UseGlobalDict: true`, the resolved broker settings are saved under the session-scoped `RabbitMq/AmqpDefaults` alias, and this probe also writes the deleted queue names as `RabbitMqQueueConfig[]` to `RabbitMq/Recovery/Queues`. The canonical payload still lives under `__ProbeGlobalDict/Scoped/<execution-scope>/<session-name>/<probe-name>`, so every probe execution keeps its own isolated write path.\r\n\r\nThat makes the probe useful in recovery or rollback scenarios where `CreateRabbitMqQueues` runs later in the same execution and session and restores the deleted topology from the saved alias instead of hard-coding it twice. When `UseGlobalDict` is `false`, current behavior stays unchanged: only local YAML or code configuration is used, and nothing is written to the probe global dictionary."
     },
@@ -565,7 +565,7 @@
         "Runtime": "mocker",
         "WhatItDoes": "Returns an HTTP response whose main purpose is the configured status code and does not require a response body.\r\n\r\nThis is useful for endpoints such as health checks, accepted commands, or no-content acknowledgements where only the status code matters.",
         "YamlSnippet": "Stubs:\r\n  - Name: StatusCodeTransactionProcessorStub\r\n    Processor: StatusCodeTransactionProcessor\r\n\r\n    ProcessorConfiguration:\r\n      StatusCode: 204\n\nServers:\r\n  - Http:\r\n      Port: 8080\r\n      IsLocalhost: true\r\n      Endpoints:\r\n        - Path: /health\r\n          Actions:\r\n            - Name: HealthAction\r\n              Method: Get\r\n              TransactionStubName: StatusCodeTransactionProcessorStub",
-        "ConfigExplanation": "This stub returns an HTTP `204` response and does not need to construct a response body.\r\n\r\nIt is a minimal way to model endpoints that acknowledge the request successfully but intentionally return no content."
+        "ConfigExplanation": "This stub returns an HTTP `204` response and does not need to construct a response body.\r\n\r\nIt is a minimal way to represent endpoints that acknowledge the request successfully but intentionally return no content."
     },
     {
         "Kind": "processors",
