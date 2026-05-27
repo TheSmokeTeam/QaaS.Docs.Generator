@@ -121,6 +121,61 @@ public sealed class MarkdownFrontmatterTests
         });
     }
 
+    [Test]
+    public void ApplyExistingOrDefault_WhenReferencePageIsMissingSkeleton_AddsTldrAndSeeAlso()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"qaas-docs-tools-tests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+        var pagePath = Path.Combine(tempRoot, "overview.md");
+
+        var content = ToolsMarkdownFrontmatter
+            .ApplyExistingOrDefault(
+                pagePath,
+                "assertions/availableAssertions/DelayByAverage/overview.md",
+                "# DelayByAverage\n\n## What It Does\n\nGenerated body.")
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(content, Does.Contain("# DelayByAverage\n\n> TL;DR: Reference page for DelayByAverage.\n\n## What It Does"));
+            Assert.That(content, Does.Contain("\n## See also\n\nUse the surrounding documentation navigation to move between related generated reference pages."));
+        });
+    }
+
+    [Test]
+    public void Remove_WhenPageHasGeneratedSkeleton_RemovesTldrAndSeeAlso()
+    {
+        var body = ToolsMarkdownFrontmatter.Remove(
+            """
+            ---
+            id: sample
+            type: reference
+            ---
+
+            # Title
+
+            > TL;DR: Generated reference page for Title.
+
+            Summary body.
+
+            ## What It Does
+
+            Details.
+
+            ## See also
+
+            Use the surrounding documentation navigation to move between related generated reference pages.
+            """);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(body, Does.Contain("Summary body."));
+            Assert.That(body, Does.Contain("## What It Does"));
+            Assert.That(body, Does.Not.Contain("TL;DR"));
+            Assert.That(body, Does.Not.Contain("See also"));
+        });
+    }
+
     private static int CountOccurrences(string content, string value)
     {
         var count = 0;
