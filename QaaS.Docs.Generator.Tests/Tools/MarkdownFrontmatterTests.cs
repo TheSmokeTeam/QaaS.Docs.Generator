@@ -9,7 +9,10 @@ public sealed class MarkdownFrontmatterTests
     [Test]
     public void ApplyExistingOrDefault_WhenExistingPageHasFrontmatter_PreservesIt()
     {
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"qaas-docs-tools-tests-{Guid.NewGuid():N}");
+        var tempRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"qaas-docs-tools-tests-{Guid.NewGuid():N}"
+        );
         Directory.CreateDirectory(tempRoot);
         var pagePath = Path.Combine(tempRoot, "overview.md");
         File.WriteAllText(
@@ -27,12 +30,14 @@ public sealed class MarkdownFrontmatterTests
             ---
 
             # Old
-            """);
+            """
+        );
 
         var content = ToolsMarkdownFrontmatter.ApplyExistingOrDefault(
             pagePath,
             "probes/availableProbes/EmptyS3Bucket/overview.md",
-            "# EmptyS3Bucket\n\nGenerated body.");
+            "# EmptyS3Bucket\n\nGenerated body."
+        );
 
         Assert.Multiple(() =>
         {
@@ -46,7 +51,10 @@ public sealed class MarkdownFrontmatterTests
     [Test]
     public void ApplyExistingOrDefault_WhenExistingPageHasVerificationMarker_PreservesItAfterFrontmatter()
     {
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"qaas-docs-tools-tests-{Guid.NewGuid():N}");
+        var tempRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"qaas-docs-tools-tests-{Guid.NewGuid():N}"
+        );
         Directory.CreateDirectory(tempRoot);
         var pagePath = Path.Combine(tempRoot, "overview.md");
         File.WriteAllText(
@@ -59,7 +67,8 @@ public sealed class MarkdownFrontmatterTests
             <!-- Verified-against: QaaS.Common.Probes\S3\EmptyS3Bucket.cs -->
 
             # Old
-            """);
+            """
+        );
 
         var content = ToolsMarkdownFrontmatter
             .ApplyExistingOrDefault(
@@ -71,7 +80,8 @@ public sealed class MarkdownFrontmatterTests
                 <!-- Verified-against: QaaS.Common.Probes\S3\EmptyS3Bucket.cs -->
 
                 Generated body.
-                """)
+                """
+            )
             .Replace("\r\n", "\n", StringComparison.Ordinal);
 
         const string marker = "<!-- Verified-against: QaaS.Common.Probes\\S3\\EmptyS3Bucket.cs -->";
@@ -95,7 +105,8 @@ public sealed class MarkdownFrontmatterTests
             ---
 
             # Title
-            """);
+            """
+        );
 
         Assert.That(body, Does.StartWith("# Title"));
     }
@@ -112,7 +123,8 @@ public sealed class MarkdownFrontmatterTests
             <!-- Verified-against: Some\File.cs -->
 
             # Title
-            """);
+            """
+        );
 
         Assert.Multiple(() =>
         {
@@ -124,7 +136,10 @@ public sealed class MarkdownFrontmatterTests
     [Test]
     public void ApplyExistingOrDefault_WhenReferencePageIsMissingSkeleton_AddsTldrAndSeeAlso()
     {
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"qaas-docs-tools-tests-{Guid.NewGuid():N}");
+        var tempRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"qaas-docs-tools-tests-{Guid.NewGuid():N}"
+        );
         Directory.CreateDirectory(tempRoot);
         var pagePath = Path.Combine(tempRoot, "overview.md");
 
@@ -132,13 +147,67 @@ public sealed class MarkdownFrontmatterTests
             .ApplyExistingOrDefault(
                 pagePath,
                 "assertions/availableAssertions/DelayByAverage/overview.md",
-                "# DelayByAverage\n\n## What It Does\n\nGenerated body.")
+                "# DelayByAverage\n\n## What It Does\n\nGenerated body."
+            )
             .Replace("\r\n", "\n", StringComparison.Ordinal);
 
         Assert.Multiple(() =>
         {
-            Assert.That(content, Does.Contain("# DelayByAverage\n\n> TL;DR: Reference page for DelayByAverage.\n\n## What It Does"));
-            Assert.That(content, Does.Contain("\n## See also\n\nUse the surrounding documentation navigation to move between related generated reference pages."));
+            Assert.That(
+                content,
+                Does.Contain(
+                    "# DelayByAverage\n\n> TL;DR: Reference page for DelayByAverage.\n\n## What It Does {: #what-it-does}"
+                )
+            );
+            Assert.That(
+                content,
+                Does.Contain(
+                    "\n## See also {: #see-also}\n\nUse the surrounding documentation navigation to move between related generated reference pages."
+                )
+            );
+        });
+    }
+
+    [Test]
+    public void ApplyExistingOrDefault_WhenCheckedHeadingsAreMissingAnchors_AddsStableExplicitAnchors()
+    {
+        var tempRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"qaas-docs-tools-tests-{Guid.NewGuid():N}"
+        );
+        Directory.CreateDirectory(tempRoot);
+        var pagePath = Path.Combine(tempRoot, "overview.md");
+
+        var content = ToolsMarkdownFrontmatter
+            .ApplyExistingOrDefault(
+                pagePath,
+                "probes/availableProbes/EmptyS3Bucket/overview.md",
+                """
+                # EmptyS3Bucket
+
+                ## Details
+
+                ### Details
+
+                ### `Run command`
+
+                ## Existing {: #custom-anchor}
+
+                ```markdown
+                ## Fenced heading
+                ```
+                """
+            )
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(content, Does.Contain("## Details {: #details}"));
+            Assert.That(content, Does.Contain("### Details {: #details-2}"));
+            Assert.That(content, Does.Contain("### `Run command` {: #run-command}"));
+            Assert.That(content, Does.Contain("## Existing {: #custom-anchor}"));
+            Assert.That(content, Does.Contain("## Fenced heading\n"));
+            Assert.That(content, Does.Not.Contain("## Fenced heading {: #fenced-heading}"));
         });
     }
 
@@ -165,7 +234,8 @@ public sealed class MarkdownFrontmatterTests
             ## See also
 
             Use the surrounding documentation navigation to move between related generated reference pages.
-            """);
+            """
+        );
 
         Assert.Multiple(() =>
         {

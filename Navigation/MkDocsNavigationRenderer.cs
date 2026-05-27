@@ -16,22 +16,47 @@ internal sealed class MkDocsNavigationRenderer
         new("hook-assertions", "assertions/index.md", "assertions", "Available Assertions", 6),
         new("hook-generators", "generators/index.md", "generators", "Available Generators", 6),
         new("hook-probes", "probes/index.md", "probes", "Available Probes", 6),
-        new("hook-processors", "processors/index.md", "processors", "Available Processors", 6)
+        new("hook-processors", "processors/index.md", "processors", "Available Processors", 6),
     ];
 
     private static readonly FunctionNavSpec[] FunctionSpecs =
     [
         new("runner-functions", "qaas/functions/index.md", 6),
         new("mocker-functions", "mocker/functions/index.md", 6),
-        new("framework-functions", "framework/functions/index.md", 6)
+        new("framework-functions", "framework/functions/index.md", 6),
     ];
 
-    private static readonly Regex AvailableFunctionsHeadingRegex = new("^## Available Functions\\s*$", RegexOptions.Compiled);
-    private static readonly Regex OverviewGroupHeadingRegex = new("^### (?<title>.+?)\\s*$", RegexOptions.Compiled);
-    private static readonly Regex OverviewLinkRegex = new("^- \\[(?<title>.+?)\\]\\((?<path>.+?)\\)\\s*$", RegexOptions.Compiled);
-    private static readonly Regex HookGroupHeadingRegex = new("^### (?<title>.+?)\\s*$", RegexOptions.Compiled);
-    private static readonly Regex HookLinkRegex = new("^- \\[(?<title>.+?)\\]\\((?<path>.+?/overview\\.md)\\):", RegexOptions.Compiled);
-    private static readonly Regex HeadingRegex = new("^(?<hashes>#{1,6}) (?<title>.+?)\\s*$", RegexOptions.Compiled);
+    private const string AnchorPattern = "\\{#[A-Za-z0-9_-]+\\}|\\{:\\s*#[A-Za-z0-9_-]+\\}";
+    private const string OptionalAnchorPattern = $"(?:\\s+(?:{AnchorPattern}))?";
+
+    private static readonly Regex AvailableFunctionsHeadingRegex = new(
+        $"^## Available Functions{OptionalAnchorPattern}\\s*$",
+        RegexOptions.Compiled
+    );
+    private static readonly Regex OverviewGroupHeadingRegex = new(
+        $"^### (?<title>.+?){OptionalAnchorPattern}\\s*$",
+        RegexOptions.Compiled
+    );
+    private static readonly Regex OverviewLinkRegex = new(
+        "^- \\[(?<title>.+?)\\]\\((?<path>.+?)\\)\\s*$",
+        RegexOptions.Compiled
+    );
+    private static readonly Regex HookGroupHeadingRegex = new(
+        $"^### (?<title>.+?){OptionalAnchorPattern}\\s*$",
+        RegexOptions.Compiled
+    );
+    private static readonly Regex HookLinkRegex = new(
+        "^- \\[(?<title>.+?)\\]\\((?<path>.+?/overview\\.md)\\):",
+        RegexOptions.Compiled
+    );
+    private static readonly Regex HeadingRegex = new(
+        $"^(?<hashes>#{{1,6}}) (?<title>.+?){OptionalAnchorPattern}\\s*$",
+        RegexOptions.Compiled
+    );
+    private static readonly Regex HeadingAnchorSuffixRegex = new(
+        $"\\s+(?:{AnchorPattern})\\s*$",
+        RegexOptions.Compiled
+    );
     private static readonly Regex SlugCleanupRegex = new("[^a-z0-9]+", RegexOptions.Compiled);
 
     public void Update(string docsRoot, bool check)
@@ -47,7 +72,8 @@ internal sealed class MkDocsNavigationRenderer
             expectedContent = ReplaceMarkedBlock(
                 expectedContent,
                 functionSpec.Key,
-                RenderFunctionBlock(functionGroups, functionSpec));
+                RenderFunctionBlock(functionGroups, functionSpec)
+            );
         }
 
         foreach (var hookSpec in HookSpecs)
@@ -55,12 +81,18 @@ internal sealed class MkDocsNavigationRenderer
             expectedContent = ReplaceMarkedBlock(
                 expectedContent,
                 hookSpec.Key,
-                RenderHookBlock(docsRoot, hookSpec));
+                RenderHookBlock(docsRoot, hookSpec)
+            );
         }
 
         expectedContent = GeneratedDocumentLineEndings.Normalize(expectedContent);
 
-        if (!expectedContent.EndsWith(GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+        if (
+            !expectedContent.EndsWith(
+                GeneratedDocumentLineEndings.Canonical,
+                StringComparison.Ordinal
+            )
+        )
         {
             expectedContent += GeneratedDocumentLineEndings.Canonical;
         }
@@ -69,7 +101,9 @@ internal sealed class MkDocsNavigationRenderer
         {
             if (!string.Equals(currentContent, expectedContent, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException("mkdocs.yml is out of date. Regenerate docs navigation.");
+                throw new InvalidOperationException(
+                    "mkdocs.yml is out of date. Regenerate docs navigation."
+                );
             }
 
             return;
@@ -95,8 +129,12 @@ internal sealed class MkDocsNavigationRenderer
             {
                 builder.AppendLine($"{indent}    - {hook.Title}:");
                 builder.AppendLine($"{indent}      - Overview: {hook.OverviewPath}");
-                builder.AppendLine($"{indent}      - Table View: {hook.ConfigurationRoot}/configuration/tableView.md");
-                builder.AppendLine($"{indent}      - YAML View: {hook.ConfigurationRoot}/configuration/yamlView.md");
+                builder.AppendLine(
+                    $"{indent}      - Table View: {hook.ConfigurationRoot}/configuration/tableView.md"
+                );
+                builder.AppendLine(
+                    $"{indent}      - YAML View: {hook.ConfigurationRoot}/configuration/yamlView.md"
+                );
             }
         }
 
@@ -104,7 +142,10 @@ internal sealed class MkDocsNavigationRenderer
         return builder.ToString();
     }
 
-    private static string RenderFunctionBlock(IReadOnlyList<FunctionGroup> groups, FunctionNavSpec spec)
+    private static string RenderFunctionBlock(
+        IReadOnlyList<FunctionGroup> groups,
+        FunctionNavSpec spec
+    )
     {
         var indent = Indent(spec.Indentation);
         var builder = new StringBuilder();
@@ -168,10 +209,14 @@ internal sealed class MkDocsNavigationRenderer
         FunctionPage page,
         ParsedFunctionSection section,
         int indentation,
-        IReadOnlyList<string> ancestors)
+        IReadOnlyList<string> ancestors
+    )
     {
         var indent = Indent(indentation);
-        var sectionPath = GetSectionRelativePath(page.RelativePath, ancestors.Append(section.Slug).ToList());
+        var sectionPath = GetSectionRelativePath(
+            page.RelativePath,
+            ancestors.Append(section.Slug).ToList()
+        );
 
         // Special-case: the "Extension Methods" overview page contains a top-
         // level "## Extension Methods" section that re-declares the page
@@ -197,13 +242,23 @@ internal sealed class MkDocsNavigationRenderer
 
         foreach (var child in section.Children)
         {
-            RenderSectionNav(builder, page, child, indentation + 2, ancestors.Append(section.Slug).ToList());
+            RenderSectionNav(
+                builder,
+                page,
+                child,
+                indentation + 2,
+                ancestors.Append(section.Slug).ToList()
+            );
         }
     }
 
     private static IReadOnlyList<HookGroup> ParseHookGroups(string docsRoot, HookNavSpec spec)
     {
-        var indexPath = Path.Combine(docsRoot, "docs", spec.IndexRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var indexPath = Path.Combine(
+            docsRoot,
+            "docs",
+            spec.IndexRelativePath.Replace('/', Path.DirectorySeparatorChar)
+        );
         var groups = new List<HookGroup>();
         HookGroup? currentGroup = null;
 
@@ -212,7 +267,7 @@ internal sealed class MkDocsNavigationRenderer
             var groupMatch = HookGroupHeadingRegex.Match(line);
             if (groupMatch.Success)
             {
-                currentGroup = new HookGroup(groupMatch.Groups["title"].Value.Trim(), []);
+                currentGroup = new HookGroup(CleanHeading(groupMatch.Groups["title"].Value), []);
                 groups.Add(currentGroup);
                 continue;
             }
@@ -232,15 +287,24 @@ internal sealed class MkDocsNavigationRenderer
 
         if (groups.Count == 0)
         {
-            throw new InvalidOperationException($"Could not parse grouped hook catalog from '{indexPath}'.");
+            throw new InvalidOperationException(
+                $"Could not parse grouped hook catalog from '{indexPath}'."
+            );
         }
 
         return groups;
     }
 
-    private static IReadOnlyList<FunctionGroup> ParseFunctionGroups(string docsRoot, FunctionNavSpec spec)
+    private static IReadOnlyList<FunctionGroup> ParseFunctionGroups(
+        string docsRoot,
+        FunctionNavSpec spec
+    )
     {
-        var overviewPath = Path.Combine(docsRoot, "docs", spec.OverviewRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var overviewPath = Path.Combine(
+            docsRoot,
+            "docs",
+            spec.OverviewRelativePath.Replace('/', Path.DirectorySeparatorChar)
+        );
         var baseDirectory = Path.GetDirectoryName(spec.OverviewRelativePath)!.Replace('\\', '/');
         var groups = new List<FunctionGroup>();
         FunctionGroup? currentGroup = null;
@@ -257,7 +321,10 @@ internal sealed class MkDocsNavigationRenderer
             var groupMatch = OverviewGroupHeadingRegex.Match(line);
             if (groupMatch.Success)
             {
-                currentGroup = new FunctionGroup(groupMatch.Groups["title"].Value.Trim(), []);
+                currentGroup = new FunctionGroup(
+                    CleanHeading(groupMatch.Groups["title"].Value),
+                    []
+                );
                 groups.Add(currentGroup);
                 continue;
             }
@@ -271,13 +338,21 @@ internal sealed class MkDocsNavigationRenderer
             var title = pageMatch.Groups["title"].Value.Trim();
             var relativePath = pageMatch.Groups["path"].Value.Trim().TrimStart('/');
             var combinedPath = CombineDocsPath(baseDirectory, relativePath);
-            var fullPagePath = Path.Combine(docsRoot, "docs", combinedPath.Replace('/', Path.DirectorySeparatorChar));
-            currentGroup.Pages.Add(new FunctionPage(title, combinedPath, ParseFunctionPage(combinedPath, fullPagePath)));
+            var fullPagePath = Path.Combine(
+                docsRoot,
+                "docs",
+                combinedPath.Replace('/', Path.DirectorySeparatorChar)
+            );
+            currentGroup.Pages.Add(
+                new FunctionPage(title, combinedPath, ParseFunctionPage(combinedPath, fullPagePath))
+            );
         }
 
         if (groups.Count == 0)
         {
-            throw new InvalidOperationException($"Could not parse grouped function overview from '{overviewPath}'.");
+            throw new InvalidOperationException(
+                $"Could not parse grouped function overview from '{overviewPath}'."
+            );
         }
 
         return groups;
@@ -304,9 +379,11 @@ internal sealed class MkDocsNavigationRenderer
             }
 
             var title = CleanHeading(match.Groups["title"].Value);
-            if (string.IsNullOrWhiteSpace(title) ||
-                title.Contains('`', StringComparison.Ordinal) ||
-                string.Equals(title, "See also", StringComparison.Ordinal))
+            if (
+                string.IsNullOrWhiteSpace(title)
+                || title.Contains('`', StringComparison.Ordinal)
+                || string.Equals(title, "See also", StringComparison.Ordinal)
+            )
             {
                 continue;
             }
@@ -336,7 +413,8 @@ internal sealed class MkDocsNavigationRenderer
 
     private static IReadOnlyList<ParsedFunctionSection> BuildSectionTree(
         IReadOnlyList<SectionCandidate> candidates,
-        int totalLineCount)
+        int totalLineCount
+    )
     {
         var sections = new List<ParsedFunctionSection>();
         var createdNodes = new List<ParsedFunctionSection>();
@@ -356,7 +434,8 @@ internal sealed class MkDocsNavigationRenderer
                 candidate.Level,
                 candidate.LineIndex,
                 endLineExclusive,
-                []);
+                []
+            );
 
             while (stack.Count != 0 && stack.Peek().Level >= node.Level)
             {
@@ -379,7 +458,11 @@ internal sealed class MkDocsNavigationRenderer
         return sections;
     }
 
-    private static void WriteFunctionSectionPages(string docsRoot, IReadOnlyList<FunctionGroup> groups, bool check)
+    private static void WriteFunctionSectionPages(
+        string docsRoot,
+        IReadOnlyList<FunctionGroup> groups,
+        bool check
+    )
     {
         foreach (var group in groups)
         {
@@ -398,18 +481,37 @@ internal sealed class MkDocsNavigationRenderer
         FunctionPage page,
         ParsedFunctionSection section,
         bool check,
-        IReadOnlyList<ParsedFunctionSection> ancestors)
+        IReadOnlyList<ParsedFunctionSection> ancestors
+    )
     {
-        var sectionSlugs = ancestors.Select(candidate => candidate.Slug).Append(section.Slug).ToList();
+        var sectionSlugs = ancestors
+            .Select(candidate => candidate.Slug)
+            .Append(section.Slug)
+            .ToList();
         var outputRelativePath = GetSectionRelativePath(page.RelativePath, sectionSlugs);
-        var outputFullPath = Path.Combine(docsRoot, "docs", outputRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var outputFullPath = Path.Combine(
+            docsRoot,
+            "docs",
+            outputRelativePath.Replace('/', Path.DirectorySeparatorChar)
+        );
 
-        var expectedContent = RenderSectionPage(page.ParsedPage, section, ancestors, outputRelativePath);
+        var expectedContent = RenderSectionPage(
+            page.ParsedPage,
+            section,
+            ancestors,
+            outputRelativePath
+        );
         WriteOrCheckFile(outputFullPath, outputRelativePath, expectedContent, check);
 
         foreach (var child in section.Children)
         {
-            WriteFunctionSectionPage(docsRoot, page, child, check, ancestors.Append(section).ToList());
+            WriteFunctionSectionPage(
+                docsRoot,
+                page,
+                child,
+                check,
+                ancestors.Append(section).ToList()
+            );
         }
     }
 
@@ -417,14 +519,19 @@ internal sealed class MkDocsNavigationRenderer
         ParsedFunctionPage page,
         ParsedFunctionSection section,
         IReadOnlyList<ParsedFunctionSection> ancestors,
-        string outputRelativePath)
+        string outputRelativePath
+    )
     {
-        var breadcrumb = ancestors.Select(candidate => candidate.Title).Append(section.Title).ToList();
+        var breadcrumb = ancestors
+            .Select(candidate => candidate.Title)
+            .Append(section.Title)
+            .ToList();
         var title = $"{page.Title}: {string.Join(" / ", breadcrumb)}";
-        var pageDirectory = Path.GetDirectoryName(outputRelativePath)?.Replace('\\', '/') ?? string.Empty;
+        var pageDirectory =
+            Path.GetDirectoryName(outputRelativePath)?.Replace('\\', '/') ?? string.Empty;
         var relativeLinkToParent = GetRelativeLink(pageDirectory, page.RelativePath);
-        var bodyLines = page.Lines
-            .Skip(section.StartLineIndex + 1)
+        var bodyLines = page
+            .Lines.Skip(section.StartLineIndex + 1)
             .Take(section.EndLineExclusive - section.StartLineIndex - 1)
             .ToList();
 
@@ -434,7 +541,9 @@ internal sealed class MkDocsNavigationRenderer
         var builder = new StringBuilder();
         builder.AppendLine($"# {title}");
         builder.AppendLine();
-        builder.AppendLine($"This page mirrors the `{string.Join(" / ", breadcrumb)}` section from [{page.Title}]({relativeLinkToParent}).");
+        builder.AppendLine(
+            $"This page mirrors the `{string.Join(" / ", breadcrumb)}` section from [{page.Title}]({relativeLinkToParent})."
+        );
 
         if (bodyLines.Count != 0)
         {
@@ -479,18 +588,38 @@ internal sealed class MkDocsNavigationRenderer
         }
     }
 
-    private static void WriteOrCheckFile(string fullPath, string relativePath, string content, bool check)
+    private static void WriteOrCheckFile(
+        string fullPath,
+        string relativePath,
+        string content,
+        bool check
+    )
     {
         var normalizedContent = GeneratedDocumentLineEndings.Normalize(content);
-        if (!normalizedContent.EndsWith(GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+        if (
+            !normalizedContent.EndsWith(
+                GeneratedDocumentLineEndings.Canonical,
+                StringComparison.Ordinal
+            )
+        )
         {
             normalizedContent += GeneratedDocumentLineEndings.Canonical;
         }
 
-        normalizedContent = MarkdownFrontmatter.ApplyExistingOrDefault(fullPath, relativePath, normalizedContent);
+        normalizedContent = MarkdownFrontmatter.ApplyExistingOrDefault(
+            fullPath,
+            relativePath,
+            normalizedContent
+        );
         normalizedContent = MarkdownVerificationMarkers.ApplyExisting(fullPath, normalizedContent);
         normalizedContent = MarkdownReferenceSkeleton.Apply(normalizedContent);
-        if (!normalizedContent.EndsWith(GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+        normalizedContent = MarkdownHeadingAnchors.Apply(normalizedContent);
+        if (
+            !normalizedContent.EndsWith(
+                GeneratedDocumentLineEndings.Canonical,
+                StringComparison.Ordinal
+            )
+        )
         {
             normalizedContent += GeneratedDocumentLineEndings.Canonical;
         }
@@ -515,7 +644,10 @@ internal sealed class MkDocsNavigationRenderer
         File.WriteAllText(fullPath, normalizedContent);
     }
 
-    private static string GetSectionRelativePath(string pageRelativePath, IReadOnlyList<string> sectionSlugs)
+    private static string GetSectionRelativePath(
+        string pageRelativePath,
+        IReadOnlyList<string> sectionSlugs
+    )
     {
         var directory = Path.GetDirectoryName(pageRelativePath)?.Replace('\\', '/') ?? string.Empty;
         var fileName = Path.GetFileNameWithoutExtension(pageRelativePath);
@@ -531,7 +663,8 @@ internal sealed class MkDocsNavigationRenderer
         var baseDirectory = string.IsNullOrWhiteSpace(fromDirectory) ? "." : fromDirectory;
         var relative = Path.GetRelativePath(
                 baseDirectory.Replace('/', Path.DirectorySeparatorChar),
-                targetRelativePath.Replace('/', Path.DirectorySeparatorChar))
+                targetRelativePath.Replace('/', Path.DirectorySeparatorChar)
+            )
             .Replace('\\', '/');
 
         return string.IsNullOrWhiteSpace(relative) ? "." : relative;
@@ -546,7 +679,9 @@ internal sealed class MkDocsNavigationRenderer
 
         if (!Regex.IsMatch(content, pattern))
         {
-            throw new InvalidOperationException($"Could not find the navigation markers for '{key}' in mkdocs.yml.");
+            throw new InvalidOperationException(
+                $"Could not find the navigation markers for '{key}' in mkdocs.yml."
+            );
         }
 
         return Regex.Replace(content, pattern, replacementBlock);
@@ -554,14 +689,17 @@ internal sealed class MkDocsNavigationRenderer
 
     private static IReadOnlyList<string> ReadLines(string path)
     {
-        return GeneratedDocumentLineEndings.Normalize(File.ReadAllText(path))
+        return GeneratedDocumentLineEndings
+            .Normalize(File.ReadAllText(path))
             .Split(GeneratedDocumentLineEndings.Canonical);
     }
 
     private static string CombineDocsPath(string baseDirectory, string relativePath)
     {
-        var parts = (baseDirectory + "/" + relativePath)
-            .Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var parts = (baseDirectory + "/" + relativePath).Split(
+            '/',
+            StringSplitOptions.RemoveEmptyEntries
+        );
         var normalized = new Stack<string>();
 
         foreach (var part in parts)
@@ -575,7 +713,9 @@ internal sealed class MkDocsNavigationRenderer
             {
                 if (normalized.Count == 0)
                 {
-                    throw new InvalidOperationException($"Cannot resolve docs path '{baseDirectory}/{relativePath}'.");
+                    throw new InvalidOperationException(
+                        $"Cannot resolve docs path '{baseDirectory}/{relativePath}'."
+                    );
                 }
 
                 normalized.Pop();
@@ -590,10 +730,7 @@ internal sealed class MkDocsNavigationRenderer
 
     private static string CleanHeading(string title)
     {
-        return title
-            .Replace("{ #", "{#", StringComparison.Ordinal)
-            .Split("{#", StringSplitOptions.TrimEntries)[0]
-            .Trim();
+        return HeadingAnchorSuffixRegex.Replace(title, string.Empty).Trim();
     }
 
     private static string Slugify(string value)
@@ -608,18 +745,20 @@ internal sealed class MkDocsNavigationRenderer
         string IndexRelativePath,
         string RootPath,
         string AvailableLabel,
-        int Indentation);
+        int Indentation
+    );
 
-    private sealed record FunctionNavSpec(
-        string Key,
-        string OverviewRelativePath,
-        int Indentation);
+    private sealed record FunctionNavSpec(string Key, string OverviewRelativePath, int Indentation);
 
     private sealed record HookEntry(string Title, string OverviewPath, string ConfigurationRoot);
 
     private sealed record HookGroup(string Title, List<HookEntry> Hooks);
 
-    private sealed record FunctionPage(string Title, string RelativePath, ParsedFunctionPage ParsedPage);
+    private sealed record FunctionPage(
+        string Title,
+        string RelativePath,
+        ParsedFunctionPage ParsedPage
+    );
 
     private sealed record FunctionGroup(string Title, List<FunctionPage> Pages);
 
@@ -627,7 +766,8 @@ internal sealed class MkDocsNavigationRenderer
         string Title,
         string RelativePath,
         IReadOnlyList<string> Lines,
-        IReadOnlyList<ParsedFunctionSection> Sections);
+        IReadOnlyList<ParsedFunctionSection> Sections
+    );
 
     private sealed record ParsedFunctionSection(
         string Title,
@@ -635,7 +775,8 @@ internal sealed class MkDocsNavigationRenderer
         int Level,
         int StartLineIndex,
         int EndLineExclusive,
-        List<ParsedFunctionSection> Children);
+        List<ParsedFunctionSection> Children
+    );
 
     private sealed record SectionCandidate(string Title, int Level, int LineIndex);
 }

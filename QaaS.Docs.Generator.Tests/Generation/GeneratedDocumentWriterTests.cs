@@ -26,7 +26,8 @@ public sealed class GeneratedDocumentWriterTests
             ---
 
             # Old
-            """);
+            """
+        );
 
         GeneratedDocumentWriter
             .Create(docsRoot)
@@ -47,7 +48,14 @@ public sealed class GeneratedDocumentWriterTests
     public void Write_WhenExistingGeneratedPageHasVerificationMarkers_PreservesThem()
     {
         var docsRoot = CreateTempDocsRoot();
-        var pagePath = Path.Combine(docsRoot, "docs", "assertions", "availableAssertions", "DelayByAverage", "overview.md");
+        var pagePath = Path.Combine(
+            docsRoot,
+            "docs",
+            "assertions",
+            "availableAssertions",
+            "DelayByAverage",
+            "overview.md"
+        );
         Directory.CreateDirectory(Path.GetDirectoryName(pagePath)!);
         File.WriteAllText(
             pagePath,
@@ -65,17 +73,28 @@ public sealed class GeneratedDocumentWriterTests
             <!-- Verified-against: QaaS.Common.Assertions\QaaS.Common.Assertions\Delay\DelayByAverage.cs -->
 
             # Old
-            """);
+            """
+        );
 
         GeneratedDocumentWriter
             .Create(docsRoot)
-            .Write([new GeneratedDocument("assertions/availableAssertions/DelayByAverage/overview.md", "# DelayByAverage\n\nGenerated body.")]);
+            .Write([
+                new GeneratedDocument(
+                    "assertions/availableAssertions/DelayByAverage/overview.md",
+                    "# DelayByAverage\n\nGenerated body."
+                ),
+            ]);
 
         var content = File.ReadAllText(pagePath);
 
         Assert.Multiple(() =>
         {
-            Assert.That(content, Does.Contain("<!-- Verified-against: QaaS.Common.Assertions\\QaaS.Common.Assertions\\Delay\\DelayByAverage.cs -->"));
+            Assert.That(
+                content,
+                Does.Contain(
+                    "<!-- Verified-against: QaaS.Common.Assertions\\QaaS.Common.Assertions\\Delay\\DelayByAverage.cs -->"
+                )
+            );
             Assert.That(content, Does.Contain("# DelayByAverage"));
             Assert.That(content, Does.Not.Contain("# Old"));
         });
@@ -85,7 +104,14 @@ public sealed class GeneratedDocumentWriterTests
     public void Write_WhenGeneratedBodyContainsExistingVerificationMarker_MovesSingleMarkerAfterFrontmatter()
     {
         var docsRoot = CreateTempDocsRoot();
-        var pagePath = Path.Combine(docsRoot, "docs", "assertions", "availableAssertions", "DelayByAverage", "overview.md");
+        var pagePath = Path.Combine(
+            docsRoot,
+            "docs",
+            "assertions",
+            "availableAssertions",
+            "DelayByAverage",
+            "overview.md"
+        );
         Directory.CreateDirectory(Path.GetDirectoryName(pagePath)!);
         File.WriteAllText(
             pagePath,
@@ -97,27 +123,29 @@ public sealed class GeneratedDocumentWriterTests
             <!-- Verified-against: QaaS.Common.Assertions\Delay\DelayByAverage.cs -->
 
             # Old
-            """);
+            """
+        );
 
         GeneratedDocumentWriter
             .Create(docsRoot)
-            .Write(
-                [
-                    new GeneratedDocument(
-                        "assertions/availableAssertions/DelayByAverage/overview.md",
-                        """
-                        # DelayByAverage
+            .Write([
+                new GeneratedDocument(
+                    "assertions/availableAssertions/DelayByAverage/overview.md",
+                    """
+                    # DelayByAverage
 
-                        <!-- Verified-against: QaaS.Common.Assertions\Delay\DelayByAverage.cs -->
+                    <!-- Verified-against: QaaS.Common.Assertions\Delay\DelayByAverage.cs -->
 
-                        ## When to use
+                    ## When to use
 
-                        Generated body.
-                        """)
-                ]);
+                    Generated body.
+                    """
+                ),
+            ]);
 
         var content = File.ReadAllText(pagePath).Replace("\r\n", "\n", StringComparison.Ordinal);
-        const string marker = "<!-- Verified-against: QaaS.Common.Assertions\\Delay\\DelayByAverage.cs -->";
+        const string marker =
+            "<!-- Verified-against: QaaS.Common.Assertions\\Delay\\DelayByAverage.cs -->";
 
         Assert.Multiple(() =>
         {
@@ -135,9 +163,16 @@ public sealed class GeneratedDocumentWriterTests
 
         GeneratedDocumentWriter
             .Create(docsRoot)
-            .Write([new GeneratedDocument("framework/functions/new-page.md", "# New Page\n\nGenerated body.")]);
+            .Write([
+                new GeneratedDocument(
+                    "framework/functions/new-page.md",
+                    "# New Page\n\nGenerated body."
+                ),
+            ]);
 
-        var content = File.ReadAllText(Path.Combine(docsRoot, "docs", "framework", "functions", "new-page.md"));
+        var content = File.ReadAllText(
+            Path.Combine(docsRoot, "docs", "framework", "functions", "new-page.md")
+        );
 
         Assert.Multiple(() =>
         {
@@ -155,22 +190,85 @@ public sealed class GeneratedDocumentWriterTests
 
         GeneratedDocumentWriter
             .Create(docsRoot)
-            .Write([new GeneratedDocument("framework/functions/new-page.md", "# New Page\n\n## Details\n\nGenerated body.")]);
+            .Write([
+                new GeneratedDocument(
+                    "framework/functions/new-page.md",
+                    "# New Page\n\n## Details\n\nGenerated body."
+                ),
+            ]);
 
-        var content = File
-            .ReadAllText(Path.Combine(docsRoot, "docs", "framework", "functions", "new-page.md"))
+        var content = File.ReadAllText(
+                Path.Combine(docsRoot, "docs", "framework", "functions", "new-page.md")
+            )
             .Replace("\r\n", "\n", StringComparison.Ordinal);
 
         Assert.Multiple(() =>
         {
-            Assert.That(content, Does.Contain("# New Page\n\n> TL;DR: Reference page for New Page.\n\n## Details"));
-            Assert.That(content, Does.EndWith("## See also\n\nUse the surrounding documentation navigation to move between related generated reference pages.\n"));
+            Assert.That(
+                content,
+                Does.Contain(
+                    "# New Page\n\n> TL;DR: Reference page for New Page.\n\n## Details {: #details}"
+                )
+            );
+            Assert.That(
+                content,
+                Does.EndWith(
+                    "## See also {: #see-also}\n\nUse the surrounding documentation navigation to move between related generated reference pages.\n"
+                )
+            );
+        });
+    }
+
+    [Test]
+    public void Write_WhenCheckedHeadingsAreMissingAnchors_AddsStableExplicitAnchors()
+    {
+        var docsRoot = CreateTempDocsRoot();
+
+        GeneratedDocumentWriter
+            .Create(docsRoot)
+            .Write([
+                new GeneratedDocument(
+                    "framework/functions/anchored-page.md",
+                    """
+                    # Anchored Page
+
+                    ## Details
+
+                    ### Details
+
+                    ### `Run command`
+
+                    ## Existing {: #custom-anchor}
+
+                    ```markdown
+                    ## Fenced heading
+                    ```
+                    """
+                ),
+            ]);
+
+        var content = File.ReadAllText(
+                Path.Combine(docsRoot, "docs", "framework", "functions", "anchored-page.md")
+            )
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(content, Does.Contain("## Details {: #details}"));
+            Assert.That(content, Does.Contain("### Details {: #details-2}"));
+            Assert.That(content, Does.Contain("### `Run command` {: #run-command}"));
+            Assert.That(content, Does.Contain("## Existing {: #custom-anchor}"));
+            Assert.That(content, Does.Contain("## Fenced heading\n"));
+            Assert.That(content, Does.Not.Contain("## Fenced heading {: #fenced-heading}"));
         });
     }
 
     private static string CreateTempDocsRoot()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"qaas-docs-generator-tests-{Guid.NewGuid():N}");
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"qaas-docs-generator-tests-{Guid.NewGuid():N}"
+        );
         Directory.CreateDirectory(path);
         return path;
     }

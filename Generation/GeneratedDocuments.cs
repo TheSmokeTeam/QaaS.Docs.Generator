@@ -28,7 +28,8 @@ internal sealed class GeneratedDocumentWriter
 
     public static GeneratedDocumentWriter Create(string docsRoot) => new(docsRoot, dryRun: false);
 
-    public static GeneratedDocumentWriter CreateDryRun(string docsRoot) => new(docsRoot, dryRun: true);
+    public static GeneratedDocumentWriter CreateDryRun(string docsRoot) =>
+        new(docsRoot, dryRun: true);
 
     public List<string> Write(IEnumerable<GeneratedDocument> documents)
     {
@@ -37,19 +38,38 @@ internal sealed class GeneratedDocumentWriter
         foreach (var document in documents)
         {
             var normalizedContent = GeneratedDocumentLineEndings.Normalize(document.Content);
-            if (!normalizedContent.EndsWith(GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+            if (
+                !normalizedContent.EndsWith(
+                    GeneratedDocumentLineEndings.Canonical,
+                    StringComparison.Ordinal
+                )
+            )
             {
                 normalizedContent += GeneratedDocumentLineEndings.Canonical;
             }
 
-            var fullPath = Path.Combine(_docsRoot, "docs", document.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            var fullPath = Path.Combine(
+                _docsRoot,
+                "docs",
+                document.RelativePath.Replace('/', Path.DirectorySeparatorChar)
+            );
             normalizedContent = MarkdownFrontmatter.ApplyExistingOrDefault(
                 fullPath,
                 document.RelativePath,
-                normalizedContent);
-            normalizedContent = MarkdownVerificationMarkers.ApplyExisting(fullPath, normalizedContent);
+                normalizedContent
+            );
+            normalizedContent = MarkdownVerificationMarkers.ApplyExisting(
+                fullPath,
+                normalizedContent
+            );
             normalizedContent = MarkdownReferenceSkeleton.Apply(normalizedContent);
-            if (!normalizedContent.EndsWith(GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+            normalizedContent = MarkdownHeadingAnchors.Apply(normalizedContent);
+            if (
+                !normalizedContent.EndsWith(
+                    GeneratedDocumentLineEndings.Canonical,
+                    StringComparison.Ordinal
+                )
+            )
             {
                 normalizedContent += GeneratedDocumentLineEndings.Canonical;
             }
@@ -87,8 +107,10 @@ internal static class MarkdownReferenceSkeleton
     public static string Apply(string content)
     {
         var normalizedContent = GeneratedDocumentLineEndings.Normalize(content);
-        if (!TrySplitFrontmatter(normalizedContent, out var frontmatter, out var body) ||
-            !IsReferenceFrontmatter(frontmatter))
+        if (
+            !TrySplitFrontmatter(normalizedContent, out var frontmatter, out var body)
+            || !IsReferenceFrontmatter(frontmatter)
+        )
         {
             return normalizedContent;
         }
@@ -101,7 +123,10 @@ internal static class MarkdownReferenceSkeleton
 
         if (!ContainsTldr(normalizedBody))
         {
-            normalizedBody = InsertTldr(normalizedBody, ExtractSummary(frontmatter, normalizedBody));
+            normalizedBody = InsertTldr(
+                normalizedBody,
+                ExtractSummary(frontmatter, normalizedBody)
+            );
         }
 
         if (!ContainsSeeAlso(normalizedBody))
@@ -111,10 +136,8 @@ internal static class MarkdownReferenceSkeleton
 
         return string.Join(
             GeneratedDocumentLineEndings.Canonical,
-            [
-                frontmatter.TrimEnd('\r', '\n'),
-                normalizedBody.TrimStart('\r', '\n')
-            ]);
+            [frontmatter.TrimEnd('\r', '\n'), normalizedBody.TrimStart('\r', '\n')]
+        );
     }
 
     private static bool TrySplitFrontmatter(string content, out string frontmatter, out string body)
@@ -122,7 +145,12 @@ internal static class MarkdownReferenceSkeleton
         frontmatter = string.Empty;
         body = content;
         var normalized = GeneratedDocumentLineEndings.Normalize(content);
-        if (!normalized.StartsWith("---" + GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+        if (
+            !normalized.StartsWith(
+                "---" + GeneratedDocumentLineEndings.Canonical,
+                StringComparison.Ordinal
+            )
+        )
         {
             return false;
         }
@@ -130,13 +158,15 @@ internal static class MarkdownReferenceSkeleton
         var frontmatterEnd = normalized.IndexOf(
             GeneratedDocumentLineEndings.Canonical + "---" + GeneratedDocumentLineEndings.Canonical,
             GeneratedDocumentLineEndings.Canonical.Length,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         if (frontmatterEnd < 0)
         {
             return false;
         }
 
-        var splitIndex = frontmatterEnd + GeneratedDocumentLineEndings.Canonical.Length + "---".Length;
+        var splitIndex =
+            frontmatterEnd + GeneratedDocumentLineEndings.Canonical.Length + "---".Length;
         frontmatter = normalized[..splitIndex];
         body = normalized[splitIndex..];
         return true;
@@ -149,7 +179,10 @@ internal static class MarkdownReferenceSkeleton
             .Any(line =>
             {
                 var parts = line.Split(':', 2, StringSplitOptions.TrimEntries);
-                if (parts.Length != 2 || !string.Equals(parts[0], "type", StringComparison.OrdinalIgnoreCase))
+                if (
+                    parts.Length != 2
+                    || !string.Equals(parts[0], "type", StringComparison.OrdinalIgnoreCase)
+                )
                 {
                     return false;
                 }
@@ -161,33 +194,31 @@ internal static class MarkdownReferenceSkeleton
 
     private static bool HasH1(string body)
     {
-        return body
-            .Split(GeneratedDocumentLineEndings.Canonical)
+        return body.Split(GeneratedDocumentLineEndings.Canonical)
             .Any(line => line.StartsWith("# ", StringComparison.Ordinal));
     }
 
     private static bool ContainsTldr(string body)
     {
-        return body
-            .Split(GeneratedDocumentLineEndings.Canonical)
+        return body.Split(GeneratedDocumentLineEndings.Canonical)
             .Any(line => line.StartsWith(TldrPrefix, StringComparison.Ordinal));
     }
 
     private static bool ContainsSeeAlso(string body)
     {
-        return body
-            .Split(GeneratedDocumentLineEndings.Canonical)
+        return body.Split(GeneratedDocumentLineEndings.Canonical)
             .Any(line =>
             {
                 var trimmed = line.Trim();
-                return string.Equals(trimmed, SeeAlsoHeading, StringComparison.Ordinal) ||
-                       trimmed.StartsWith(SeeAlsoHeading + " ", StringComparison.Ordinal);
+                return string.Equals(trimmed, SeeAlsoHeading, StringComparison.Ordinal)
+                    || trimmed.StartsWith(SeeAlsoHeading + " ", StringComparison.Ordinal);
             });
     }
 
     private static string InsertTldr(string body, string summary)
     {
-        var lines = GeneratedDocumentLineEndings.Normalize(body)
+        var lines = GeneratedDocumentLineEndings
+            .Normalize(body)
             .Split(GeneratedDocumentLineEndings.Canonical)
             .ToList();
         var titleIndex = lines.FindIndex(line => line.StartsWith("# ", StringComparison.Ordinal));
@@ -197,10 +228,7 @@ internal static class MarkdownReferenceSkeleton
         }
 
         var before = lines.Take(titleIndex + 1).ToList();
-        var after = lines
-            .Skip(titleIndex + 1)
-            .SkipWhile(string.IsNullOrWhiteSpace)
-            .ToList();
+        var after = lines.Skip(titleIndex + 1).SkipWhile(string.IsNullOrWhiteSpace).ToList();
 
         return string.Join(
             GeneratedDocumentLineEndings.Canonical,
@@ -208,7 +236,8 @@ internal static class MarkdownReferenceSkeleton
                 .Append(string.Empty)
                 .Append($"> TL;DR: {summary}")
                 .Append(string.Empty)
-                .Concat(after));
+                .Concat(after)
+        );
     }
 
     private static string ExtractSummary(string frontmatter, string body)
@@ -224,10 +253,9 @@ internal static class MarkdownReferenceSkeleton
             return NormalizeSummary(trimmed["summary:".Length..]);
         }
 
-        var title = body
-            .Split(GeneratedDocumentLineEndings.Canonical)
-            .FirstOrDefault(line => line.StartsWith("# ", StringComparison.Ordinal))?[2..]
-            .Trim();
+        var title = body.Split(GeneratedDocumentLineEndings.Canonical)
+            .FirstOrDefault(line => line.StartsWith("# ", StringComparison.Ordinal))
+            ?[2..].Trim();
         return string.IsNullOrWhiteSpace(title)
             ? "Generated reference page."
             : $"Generated reference page for {title}.";
@@ -236,9 +264,13 @@ internal static class MarkdownReferenceSkeleton
     private static string NormalizeSummary(string value)
     {
         var trimmed = value.Trim();
-        if (trimmed.Length >= 2 &&
-            ((trimmed[0] == '"' && trimmed[^1] == '"') ||
-             (trimmed[0] == '\'' && trimmed[^1] == '\'')))
+        if (
+            trimmed.Length >= 2
+            && (
+                (trimmed[0] == '"' && trimmed[^1] == '"')
+                || (trimmed[0] == '\'' && trimmed[^1] == '\'')
+            )
+        )
         {
             trimmed = trimmed[1..^1];
         }
@@ -259,8 +291,9 @@ internal static class MarkdownReferenceSkeleton
                 string.Empty,
                 SeeAlsoHeading,
                 string.Empty,
-                "Use the surrounding documentation navigation to move between related generated reference pages."
-            ]);
+                "Use the surrounding documentation navigation to move between related generated reference pages.",
+            ]
+        );
     }
 }
 
@@ -275,14 +308,14 @@ internal static class MarkdownVerificationMarkers
 
         if (File.Exists(fullPath))
         {
-            var existingContent = GeneratedDocumentLineEndings.Normalize(File.ReadAllText(fullPath));
+            var existingContent = GeneratedDocumentLineEndings.Normalize(
+                File.ReadAllText(fullPath)
+            );
             markers.AddRange(ExtractMarkers(existingContent));
         }
 
         markers.AddRange(ExtractMarkers(normalizedContent));
-        markers = markers
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
+        markers = markers.Distinct(StringComparer.Ordinal).ToList();
 
         var body = Remove(normalizedContent);
         return markers.Count == 0 ? body : InsertAfterFrontmatter(body, markers);
@@ -290,17 +323,23 @@ internal static class MarkdownVerificationMarkers
 
     public static string Remove(string content)
     {
-        var lines = GeneratedDocumentLineEndings.Normalize(content)
+        var lines = GeneratedDocumentLineEndings
+            .Normalize(content)
             .Split(GeneratedDocumentLineEndings.Canonical);
         return string.Join(
             GeneratedDocumentLineEndings.Canonical,
-            lines.Where(line => !IsMarkerLine(line)));
+            lines.Where(line => !IsMarkerLine(line))
+        );
     }
 
     private static IEnumerable<string> ExtractMarkers(string content)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var line in GeneratedDocumentLineEndings.Normalize(content).Split(GeneratedDocumentLineEndings.Canonical))
+        foreach (
+            var line in GeneratedDocumentLineEndings
+                .Normalize(content)
+                .Split(GeneratedDocumentLineEndings.Canonical)
+        )
         {
             var trimmed = line.Trim();
             if (!IsMarkerLine(trimmed))
@@ -318,49 +357,55 @@ internal static class MarkdownVerificationMarkers
     private static bool IsMarkerLine(string line)
     {
         var trimmed = line.Trim();
-        return trimmed.StartsWith(MarkerPrefix, StringComparison.Ordinal) &&
-               trimmed.EndsWith("-->", StringComparison.Ordinal);
+        return trimmed.StartsWith(MarkerPrefix, StringComparison.Ordinal)
+            && trimmed.EndsWith("-->", StringComparison.Ordinal);
     }
 
     private static string InsertAfterFrontmatter(string content, IReadOnlyList<string> markers)
     {
         var markerBlock = string.Join(GeneratedDocumentLineEndings.Canonical, markers);
         var normalized = GeneratedDocumentLineEndings.Normalize(content);
-        if (normalized.StartsWith("---" + GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+        if (
+            normalized.StartsWith(
+                "---" + GeneratedDocumentLineEndings.Canonical,
+                StringComparison.Ordinal
+            )
+        )
         {
             var frontmatterEnd = normalized.IndexOf(
-                GeneratedDocumentLineEndings.Canonical + "---" + GeneratedDocumentLineEndings.Canonical,
+                GeneratedDocumentLineEndings.Canonical
+                    + "---"
+                    + GeneratedDocumentLineEndings.Canonical,
                 GeneratedDocumentLineEndings.Canonical.Length,
-                StringComparison.Ordinal);
+                StringComparison.Ordinal
+            );
             if (frontmatterEnd >= 0)
             {
-                var splitIndex = frontmatterEnd + GeneratedDocumentLineEndings.Canonical.Length + "---".Length;
+                var splitIndex =
+                    frontmatterEnd + GeneratedDocumentLineEndings.Canonical.Length + "---".Length;
                 var frontmatter = normalized[..splitIndex].TrimEnd('\r', '\n');
                 var body = normalized[splitIndex..].TrimStart('\r', '\n');
                 return string.Join(
                     GeneratedDocumentLineEndings.Canonical,
-                    [
-                        frontmatter,
-                        markerBlock,
-                        string.Empty,
-                        body
-                    ]);
+                    [frontmatter, markerBlock, string.Empty, body]
+                );
             }
         }
 
         return string.Join(
             GeneratedDocumentLineEndings.Canonical,
-            [
-                markerBlock,
-                string.Empty,
-                normalized.TrimStart('\r', '\n')
-            ]);
+            [markerBlock, string.Empty, normalized.TrimStart('\r', '\n')]
+        );
     }
 }
 
 internal static class MarkdownFrontmatter
 {
-    public static string ApplyExistingOrDefault(string fullPath, string relativePath, string generatedContent)
+    public static string ApplyExistingOrDefault(
+        string fullPath,
+        string relativePath,
+        string generatedContent
+    )
     {
         var normalizedContent = GeneratedDocumentLineEndings.Normalize(generatedContent);
         if (TryExtract(normalizedContent, out _))
@@ -370,7 +415,9 @@ internal static class MarkdownFrontmatter
 
         if (File.Exists(fullPath))
         {
-            var existingContent = GeneratedDocumentLineEndings.Normalize(File.ReadAllText(fullPath));
+            var existingContent = GeneratedDocumentLineEndings.Normalize(
+                File.ReadAllText(fullPath)
+            );
             if (TryExtract(existingContent, out var existingFrontmatter))
             {
                 return Combine(existingFrontmatter, normalizedContent);
@@ -383,7 +430,9 @@ internal static class MarkdownFrontmatter
     private static bool TryExtract(string content, out string frontmatter)
     {
         frontmatter = string.Empty;
-        var normalized = content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\r", "\n", StringComparison.Ordinal);
+        var normalized = content
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace("\r", "\n", StringComparison.Ordinal);
         if (!normalized.StartsWith("---\n", StringComparison.Ordinal))
         {
             return false;
@@ -395,13 +444,17 @@ internal static class MarkdownFrontmatter
             return false;
         }
 
-        frontmatter = GeneratedDocumentLineEndings.Normalize(normalized[..(endIndex + "\n---\n".Length)].TrimEnd('\n'));
+        frontmatter = GeneratedDocumentLineEndings.Normalize(
+            normalized[..(endIndex + "\n---\n".Length)].TrimEnd('\n')
+        );
         return true;
     }
 
     private static string Combine(string frontmatter, string body)
     {
-        var normalizedFrontmatter = GeneratedDocumentLineEndings.Normalize(frontmatter).TrimEnd('\r', '\n');
+        var normalizedFrontmatter = GeneratedDocumentLineEndings
+            .Normalize(frontmatter)
+            .TrimEnd('\r', '\n');
         var normalizedBody = GeneratedDocumentLineEndings.Normalize(body).TrimStart('\r', '\n');
         return $"{normalizedFrontmatter}{GeneratedDocumentLineEndings.Canonical}{GeneratedDocumentLineEndings.Canonical}{normalizedBody}";
     }
@@ -409,7 +462,8 @@ internal static class MarkdownFrontmatter
     private static string CreateDefault(string relativePath, string generatedContent)
     {
         var normalizedPath = relativePath.Replace('\\', '/');
-        var title = ExtractTitle(generatedContent) ?? Path.GetFileNameWithoutExtension(normalizedPath);
+        var title =
+            ExtractTitle(generatedContent) ?? Path.GetFileNameWithoutExtension(normalizedPath);
         var appliesTo = normalizedPath.Split('/', 2)[0] switch
         {
             "assertions" => "assertions",
@@ -419,7 +473,7 @@ internal static class MarkdownFrontmatter
             "mocker" => "mocker",
             "framework" => "framework",
             "qaas" => "runner",
-            _ => "qaas"
+            _ => "qaas",
         };
         var id = normalizedPath
             .Replace(".md", string.Empty, StringComparison.OrdinalIgnoreCase)
@@ -438,13 +492,18 @@ internal static class MarkdownFrontmatter
                 $"applies_to: [{appliesTo}]",
                 $"keywords: [{appliesTo}, reference]",
                 $"summary: \"Reference page for {EscapeYaml(title)}.\"",
-                "---"
-            ]);
+                "---",
+            ]
+        );
     }
 
     private static string? ExtractTitle(string content)
     {
-        foreach (var line in GeneratedDocumentLineEndings.Normalize(content).Split(GeneratedDocumentLineEndings.Canonical))
+        foreach (
+            var line in GeneratedDocumentLineEndings
+                .Normalize(content)
+                .Split(GeneratedDocumentLineEndings.Canonical)
+        )
         {
             if (line.StartsWith("# ", StringComparison.Ordinal))
             {
@@ -457,7 +516,9 @@ internal static class MarkdownFrontmatter
 
     private static string EscapeYaml(string value)
     {
-        return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal);
     }
 }
 
