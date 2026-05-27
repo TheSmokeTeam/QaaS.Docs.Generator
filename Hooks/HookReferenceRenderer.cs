@@ -575,10 +575,7 @@ internal sealed class HookReferenceRenderer
 
     private static string Escape(string value)
     {
-        return value
-            .Replace("|", "\\|", StringComparison.Ordinal)
-            .Replace("\r", string.Empty, StringComparison.Ordinal)
-            .Replace("\n", "<br />", StringComparison.Ordinal);
+        return MarkdownTableCellFormatter.Format(value);
     }
 
     private sealed record HookKindSpec(string DocsRoot, string IndexRelativePath, string DisplayTitle, string RepositoryDirectory);

@@ -338,10 +338,7 @@ internal sealed class CliReferenceRenderer
 
     private static string Escape(string value)
     {
-        return value
-            .Replace("|", "\\|", StringComparison.Ordinal)
-            .Replace("\r", string.Empty, StringComparison.Ordinal)
-            .Replace("\n", "<br />", StringComparison.Ordinal);
+        return MarkdownTableCellFormatter.Format(value);
     }
 
     private static string NormalizeHelpText(string helpText)

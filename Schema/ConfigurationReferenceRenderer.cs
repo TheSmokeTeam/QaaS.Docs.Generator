@@ -154,10 +154,7 @@ internal sealed class ConfigurationReferenceRenderer
 
     private static string Escape(string value)
     {
-        return value
-            .Replace("|", "\\|", StringComparison.Ordinal)
-            .Replace("\r", string.Empty, StringComparison.Ordinal)
-            .Replace("\n", "<br />", StringComparison.Ordinal);
+        return MarkdownTableCellFormatter.Format(value);
     }
 
     private static bool TryGetSessionItemSchema(JsonSchema schema, out JsonSchema itemSchema)
