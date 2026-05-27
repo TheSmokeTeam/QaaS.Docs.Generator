@@ -66,7 +66,7 @@ public class CliReferenceRendererTests
                 new MockerCliOption("LoggerLevel", "l", "logger-level", "LogEventLevel?", false, null, "Logger level.", "QaaS.Framework.Executions.Options.LoggerOptions", true)
             ]);
 
-        var content = new CliReferenceRenderer().RenderMocker(new MockerCliCatalog("overview", [run, template]))
+        var content = new CliReferenceRenderer().RenderMocker(new MockerCliCatalog(DateTimeOffset.UnixEpoch, "overview", [run, template]))
             .Single(document => document.RelativePath.EndsWith("/commands.md", StringComparison.Ordinal))
             .Content;
 

@@ -34,7 +34,7 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
 
             var summary = await GetOverviewSummaryAsync(fullPath);
             var content = RenderOverview(entry, summary);
-            await SetOrCheckMarkdownAsync(fullPath, content, check);
+            await SetOrCheckMarkdownAsync(fullPath, relativePath, content, check);
         }
 
         return 0;
@@ -52,7 +52,7 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
 
     private static async Task<string> GetOverviewSummaryAsync(string path)
     {
-        var content = Utf8File.NormalizeLineEndings(await Utf8File.ReadAllTextAsync(path)).Trim();
+        var content = MarkdownFrontmatter.Remove(Utf8File.NormalizeLineEndings(await Utf8File.ReadAllTextAsync(path))).Trim();
         if (string.IsNullOrWhiteSpace(content))
         {
             throw new InvalidOperationException($"Hook overview file is empty: {path}");
@@ -128,9 +128,9 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
             ]);
     }
 
-    private static async Task SetOrCheckMarkdownAsync(string path, string content, bool check)
+    private static async Task SetOrCheckMarkdownAsync(string path, string relativePath, string content, bool check)
     {
-        var expected = Utf8File.NormalizeLineEndings(content);
+        var expected = MarkdownFrontmatter.ApplyExistingOrDefault(path, relativePath, Utf8File.NormalizeLineEndings(content));
         var current = File.Exists(path)
             ? Utf8File.NormalizeLineEndings(await Utf8File.ReadAllTextAsync(path))
             : null;
