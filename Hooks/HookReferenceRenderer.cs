@@ -278,6 +278,14 @@ internal sealed class HookReferenceRenderer
             lines.RemoveAt(0);
         }
 
+        RemoveLeadingFrontmatter(lines);
+        lines = lines.Where(line => !IsVerificationMarkerLine(line)).ToList();
+
+        while (lines.Count != 0 && string.IsNullOrWhiteSpace(lines[0]))
+        {
+            lines.RemoveAt(0);
+        }
+
         if (lines.Count != 0 && lines[0].StartsWith("# ", StringComparison.Ordinal))
         {
             lines.RemoveAt(0);
@@ -311,6 +319,32 @@ internal sealed class HookReferenceRenderer
         return lines.Count == 0
             ? null
             : string.Join(GeneratedDocumentLineEndings.Canonical, lines).Trim();
+    }
+
+    private static void RemoveLeadingFrontmatter(List<string> lines)
+    {
+        if (lines.Count == 0 || !string.Equals(lines[0].Trim(), "---", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        for (var index = 1; index < lines.Count; index++)
+        {
+            if (!string.Equals(lines[index].Trim(), "---", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            lines.RemoveRange(0, index + 1);
+            return;
+        }
+    }
+
+    private static bool IsVerificationMarkerLine(string line)
+    {
+        var trimmed = line.Trim();
+        return trimmed.StartsWith("<!-- Verified-against:", StringComparison.Ordinal) &&
+               trimmed.EndsWith("-->", StringComparison.Ordinal);
     }
 
     private static bool IsIgnoredPath(string sourceRoot, string filePath)

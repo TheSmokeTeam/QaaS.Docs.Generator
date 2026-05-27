@@ -486,6 +486,7 @@ internal sealed class MkDocsNavigationRenderer
         }
 
         normalizedContent = MarkdownFrontmatter.ApplyExistingOrDefault(fullPath, relativePath, normalizedContent);
+        normalizedContent = MarkdownVerificationMarkers.ApplyExisting(fullPath, normalizedContent);
 
         if (check)
         {

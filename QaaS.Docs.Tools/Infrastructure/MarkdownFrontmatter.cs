@@ -8,29 +8,38 @@ internal static class MarkdownFrontmatter
     public static string ApplyExistingOrDefault(string fullPath, string relativePath, string generatedContent)
     {
         var normalizedContent = Utf8File.NormalizeLineEndings(generatedContent);
+        string contentWithFrontmatter;
         if (TryExtract(normalizedContent, out _))
         {
-            return normalizedContent;
+            contentWithFrontmatter = normalizedContent;
         }
-
-        if (File.Exists(fullPath))
+        else if (File.Exists(fullPath))
         {
             var existingContent = Utf8File.NormalizeLineEndings(File.ReadAllText(fullPath));
             if (TryExtract(existingContent, out var existingFrontmatter))
             {
-                return Combine(existingFrontmatter, normalizedContent);
+                contentWithFrontmatter = Combine(existingFrontmatter, normalizedContent);
+            }
+            else
+            {
+                contentWithFrontmatter = Combine(CreateDefault(relativePath, normalizedContent), normalizedContent);
             }
         }
+        else
+        {
+            contentWithFrontmatter = Combine(CreateDefault(relativePath, normalizedContent), normalizedContent);
+        }
 
-        return Combine(CreateDefault(relativePath, normalizedContent), normalizedContent);
+        return MarkdownVerificationMarkers.ApplyExisting(fullPath, contentWithFrontmatter);
     }
 
     public static string Remove(string content)
     {
         var normalized = Utf8File.NormalizeLineEndings(content);
-        return TryExtract(normalized, out var frontmatter)
+        var body = TryExtract(normalized, out var frontmatter)
             ? normalized[frontmatter.Length..].TrimStart('\n')
             : normalized;
+        return MarkdownVerificationMarkers.Remove(body).TrimStart('\n');
     }
 
     private static bool TryExtract(string content, out string frontmatter)
@@ -111,5 +120,93 @@ internal static class MarkdownFrontmatter
     private static string EscapeYaml(string value)
     {
         return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
+    }
+}
+
+internal static class MarkdownVerificationMarkers
+{
+    private const string MarkerPrefix = "<!-- Verified-against:";
+
+    public static string ApplyExisting(string fullPath, string generatedContent)
+    {
+        var normalizedContent = Utf8File.NormalizeLineEndings(generatedContent);
+        var markers = new List<string>();
+
+        if (File.Exists(fullPath))
+        {
+            var existingContent = Utf8File.NormalizeLineEndings(File.ReadAllText(fullPath));
+            markers.AddRange(ExtractMarkers(existingContent));
+        }
+
+        markers.AddRange(ExtractMarkers(normalizedContent));
+        markers = markers
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var body = Remove(normalizedContent);
+        return markers.Count == 0 ? body : InsertAfterFrontmatter(body, markers);
+    }
+
+    public static string Remove(string content)
+    {
+        var lines = Utf8File.NormalizeLineEndings(content).Split('\n');
+        return string.Join("\n", lines.Where(line => !IsMarkerLine(line)));
+    }
+
+    private static IEnumerable<string> ExtractMarkers(string content)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var line in Utf8File.NormalizeLineEndings(content).Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (!IsMarkerLine(trimmed))
+            {
+                continue;
+            }
+
+            if (seen.Add(trimmed))
+            {
+                yield return trimmed;
+            }
+        }
+    }
+
+    private static bool IsMarkerLine(string line)
+    {
+        var trimmed = line.Trim();
+        return trimmed.StartsWith(MarkerPrefix, StringComparison.Ordinal) &&
+               trimmed.EndsWith("-->", StringComparison.Ordinal);
+    }
+
+    private static string InsertAfterFrontmatter(string content, IReadOnlyList<string> markers)
+    {
+        var markerBlock = string.Join("\n", markers);
+        var normalized = Utf8File.NormalizeLineEndings(content);
+        if (normalized.StartsWith("---\n", StringComparison.Ordinal))
+        {
+            var frontmatterEnd = normalized.IndexOf("\n---\n", 4, StringComparison.Ordinal);
+            if (frontmatterEnd >= 0)
+            {
+                var splitIndex = frontmatterEnd + "\n---".Length;
+                var frontmatter = normalized[..splitIndex].TrimEnd('\n');
+                var body = normalized[splitIndex..].TrimStart('\n');
+                return string.Join(
+                    "\n",
+                    [
+                        frontmatter,
+                        markerBlock,
+                        string.Empty,
+                        body
+                    ]);
+            }
+        }
+
+        return string.Join(
+            "\n",
+            [
+                markerBlock,
+                string.Empty,
+                normalized.TrimStart('\n')
+            ]);
     }
 }

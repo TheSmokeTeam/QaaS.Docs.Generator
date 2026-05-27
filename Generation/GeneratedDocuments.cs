@@ -81,21 +81,30 @@ internal static class MarkdownVerificationMarkers
     public static string ApplyExisting(string fullPath, string generatedContent)
     {
         var normalizedContent = GeneratedDocumentLineEndings.Normalize(generatedContent);
-        if (ContainsMarker(normalizedContent) || !File.Exists(fullPath))
+        var markers = new List<string>();
+
+        if (File.Exists(fullPath))
         {
-            return normalizedContent;
+            var existingContent = GeneratedDocumentLineEndings.Normalize(File.ReadAllText(fullPath));
+            markers.AddRange(ExtractMarkers(existingContent));
         }
 
-        var existingContent = GeneratedDocumentLineEndings.Normalize(File.ReadAllText(fullPath));
-        var markers = ExtractMarkers(existingContent).ToList();
-        return markers.Count == 0
-            ? normalizedContent
-            : InsertAfterFrontmatter(normalizedContent, markers);
+        markers.AddRange(ExtractMarkers(normalizedContent));
+        markers = markers
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var body = Remove(normalizedContent);
+        return markers.Count == 0 ? body : InsertAfterFrontmatter(body, markers);
     }
 
-    private static bool ContainsMarker(string content)
+    public static string Remove(string content)
     {
-        return content.Contains(MarkerPrefix, StringComparison.Ordinal);
+        var lines = GeneratedDocumentLineEndings.Normalize(content)
+            .Split(GeneratedDocumentLineEndings.Canonical);
+        return string.Join(
+            GeneratedDocumentLineEndings.Canonical,
+            lines.Where(line => !IsMarkerLine(line)));
     }
 
     private static IEnumerable<string> ExtractMarkers(string content)
@@ -104,8 +113,7 @@ internal static class MarkdownVerificationMarkers
         foreach (var line in GeneratedDocumentLineEndings.Normalize(content).Split(GeneratedDocumentLineEndings.Canonical))
         {
             var trimmed = line.Trim();
-            if (!trimmed.StartsWith(MarkerPrefix, StringComparison.Ordinal) ||
-                !trimmed.EndsWith("-->", StringComparison.Ordinal))
+            if (!IsMarkerLine(trimmed))
             {
                 continue;
             }
@@ -115,6 +123,13 @@ internal static class MarkdownVerificationMarkers
                 yield return trimmed;
             }
         }
+    }
+
+    private static bool IsMarkerLine(string line)
+    {
+        var trimmed = line.Trim();
+        return trimmed.StartsWith(MarkerPrefix, StringComparison.Ordinal) &&
+               trimmed.EndsWith("-->", StringComparison.Ordinal);
     }
 
     private static string InsertAfterFrontmatter(string content, IReadOnlyList<string> markers)

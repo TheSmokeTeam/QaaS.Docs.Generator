@@ -82,6 +82,53 @@ public sealed class GeneratedDocumentWriterTests
     }
 
     [Test]
+    public void Write_WhenGeneratedBodyContainsExistingVerificationMarker_MovesSingleMarkerAfterFrontmatter()
+    {
+        var docsRoot = CreateTempDocsRoot();
+        var pagePath = Path.Combine(docsRoot, "docs", "assertions", "availableAssertions", "DelayByAverage", "overview.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(pagePath)!);
+        File.WriteAllText(
+            pagePath,
+            """
+            ---
+            id: assertions.available.delaybyaverage.overview
+            type: reference
+            ---
+            <!-- Verified-against: QaaS.Common.Assertions\Delay\DelayByAverage.cs -->
+
+            # Old
+            """);
+
+        GeneratedDocumentWriter
+            .Create(docsRoot)
+            .Write(
+                [
+                    new GeneratedDocument(
+                        "assertions/availableAssertions/DelayByAverage/overview.md",
+                        """
+                        # DelayByAverage
+
+                        <!-- Verified-against: QaaS.Common.Assertions\Delay\DelayByAverage.cs -->
+
+                        ## When to use
+
+                        Generated body.
+                        """)
+                ]);
+
+        var content = File.ReadAllText(pagePath).Replace("\r\n", "\n", StringComparison.Ordinal);
+        const string marker = "<!-- Verified-against: QaaS.Common.Assertions\\Delay\\DelayByAverage.cs -->";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CountOccurrences(content, marker), Is.EqualTo(1));
+            Assert.That(content, Does.Contain($"---\n{marker}\n\n# DelayByAverage"));
+            Assert.That(content, Does.Contain("## When to use"));
+            Assert.That(content, Does.Not.Contain("# Old"));
+        });
+    }
+
+    [Test]
     public void Write_WhenGeneratedPageIsNew_AddsDefaultFrontmatter()
     {
         var docsRoot = CreateTempDocsRoot();
@@ -106,5 +153,18 @@ public sealed class GeneratedDocumentWriterTests
         var path = Path.Combine(Path.GetTempPath(), $"qaas-docs-generator-tests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private static int CountOccurrences(string content, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = content.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
     }
 }
