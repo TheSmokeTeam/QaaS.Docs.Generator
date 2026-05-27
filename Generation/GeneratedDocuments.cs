@@ -48,6 +48,11 @@ internal sealed class GeneratedDocumentWriter
                 document.RelativePath,
                 normalizedContent);
             normalizedContent = MarkdownVerificationMarkers.ApplyExisting(fullPath, normalizedContent);
+            normalizedContent = MarkdownReferenceSkeleton.Apply(normalizedContent);
+            if (!normalizedContent.EndsWith(GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+            {
+                normalizedContent += GeneratedDocumentLineEndings.Canonical;
+            }
 
             if (_dryRun)
             {
@@ -71,6 +76,191 @@ internal sealed class GeneratedDocumentWriter
         }
 
         return failures;
+    }
+}
+
+internal static class MarkdownReferenceSkeleton
+{
+    private const string TldrPrefix = "> TL;DR";
+    private const string SeeAlsoHeading = "## See also";
+
+    public static string Apply(string content)
+    {
+        var normalizedContent = GeneratedDocumentLineEndings.Normalize(content);
+        if (!TrySplitFrontmatter(normalizedContent, out var frontmatter, out var body) ||
+            !IsReferenceFrontmatter(frontmatter))
+        {
+            return normalizedContent;
+        }
+
+        var normalizedBody = GeneratedDocumentLineEndings.Normalize(body).TrimStart('\r', '\n');
+        if (!HasH1(normalizedBody))
+        {
+            return normalizedContent;
+        }
+
+        if (!ContainsTldr(normalizedBody))
+        {
+            normalizedBody = InsertTldr(normalizedBody, ExtractSummary(frontmatter, normalizedBody));
+        }
+
+        if (!ContainsSeeAlso(normalizedBody))
+        {
+            normalizedBody = AppendSeeAlso(normalizedBody);
+        }
+
+        return string.Join(
+            GeneratedDocumentLineEndings.Canonical,
+            [
+                frontmatter.TrimEnd('\r', '\n'),
+                normalizedBody.TrimStart('\r', '\n')
+            ]);
+    }
+
+    private static bool TrySplitFrontmatter(string content, out string frontmatter, out string body)
+    {
+        frontmatter = string.Empty;
+        body = content;
+        var normalized = GeneratedDocumentLineEndings.Normalize(content);
+        if (!normalized.StartsWith("---" + GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var frontmatterEnd = normalized.IndexOf(
+            GeneratedDocumentLineEndings.Canonical + "---" + GeneratedDocumentLineEndings.Canonical,
+            GeneratedDocumentLineEndings.Canonical.Length,
+            StringComparison.Ordinal);
+        if (frontmatterEnd < 0)
+        {
+            return false;
+        }
+
+        var splitIndex = frontmatterEnd + GeneratedDocumentLineEndings.Canonical.Length + "---".Length;
+        frontmatter = normalized[..splitIndex];
+        body = normalized[splitIndex..];
+        return true;
+    }
+
+    private static bool IsReferenceFrontmatter(string frontmatter)
+    {
+        return frontmatter
+            .Split(GeneratedDocumentLineEndings.Canonical)
+            .Any(line =>
+            {
+                var parts = line.Split(':', 2, StringSplitOptions.TrimEntries);
+                if (parts.Length != 2 || !string.Equals(parts[0], "type", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                var value = parts[1].Trim(' ', '"', '\'');
+                return string.Equals(value, "reference", StringComparison.OrdinalIgnoreCase);
+            });
+    }
+
+    private static bool HasH1(string body)
+    {
+        return body
+            .Split(GeneratedDocumentLineEndings.Canonical)
+            .Any(line => line.StartsWith("# ", StringComparison.Ordinal));
+    }
+
+    private static bool ContainsTldr(string body)
+    {
+        return body
+            .Split(GeneratedDocumentLineEndings.Canonical)
+            .Any(line => line.StartsWith(TldrPrefix, StringComparison.Ordinal));
+    }
+
+    private static bool ContainsSeeAlso(string body)
+    {
+        return body
+            .Split(GeneratedDocumentLineEndings.Canonical)
+            .Any(line =>
+            {
+                var trimmed = line.Trim();
+                return string.Equals(trimmed, SeeAlsoHeading, StringComparison.Ordinal) ||
+                       trimmed.StartsWith(SeeAlsoHeading + " ", StringComparison.Ordinal);
+            });
+    }
+
+    private static string InsertTldr(string body, string summary)
+    {
+        var lines = GeneratedDocumentLineEndings.Normalize(body)
+            .Split(GeneratedDocumentLineEndings.Canonical)
+            .ToList();
+        var titleIndex = lines.FindIndex(line => line.StartsWith("# ", StringComparison.Ordinal));
+        if (titleIndex < 0)
+        {
+            return body;
+        }
+
+        var before = lines.Take(titleIndex + 1).ToList();
+        var after = lines
+            .Skip(titleIndex + 1)
+            .SkipWhile(string.IsNullOrWhiteSpace)
+            .ToList();
+
+        return string.Join(
+            GeneratedDocumentLineEndings.Canonical,
+            before
+                .Append(string.Empty)
+                .Append($"> TL;DR: {summary}")
+                .Append(string.Empty)
+                .Concat(after));
+    }
+
+    private static string ExtractSummary(string frontmatter, string body)
+    {
+        foreach (var line in frontmatter.Split(GeneratedDocumentLineEndings.Canonical))
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith("summary:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return NormalizeSummary(trimmed["summary:".Length..]);
+        }
+
+        var title = body
+            .Split(GeneratedDocumentLineEndings.Canonical)
+            .FirstOrDefault(line => line.StartsWith("# ", StringComparison.Ordinal))?[2..]
+            .Trim();
+        return string.IsNullOrWhiteSpace(title)
+            ? "Generated reference page."
+            : $"Generated reference page for {title}.";
+    }
+
+    private static string NormalizeSummary(string value)
+    {
+        var trimmed = value.Trim();
+        if (trimmed.Length >= 2 &&
+            ((trimmed[0] == '"' && trimmed[^1] == '"') ||
+             (trimmed[0] == '\'' && trimmed[^1] == '\'')))
+        {
+            trimmed = trimmed[1..^1];
+        }
+
+        trimmed = trimmed
+            .Replace("\\\"", "\"", StringComparison.Ordinal)
+            .Replace("\\\\", "\\", StringComparison.Ordinal)
+            .Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? "Generated reference page." : trimmed;
+    }
+
+    private static string AppendSeeAlso(string body)
+    {
+        return string.Join(
+            GeneratedDocumentLineEndings.Canonical,
+            [
+                GeneratedDocumentLineEndings.Normalize(body).TrimEnd('\r', '\n'),
+                string.Empty,
+                SeeAlsoHeading,
+                string.Empty,
+                "Use the surrounding documentation navigation to move between related generated reference pages."
+            ]);
     }
 }
 

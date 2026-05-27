@@ -304,7 +304,9 @@ internal sealed class MkDocsNavigationRenderer
             }
 
             var title = CleanHeading(match.Groups["title"].Value);
-            if (string.IsNullOrWhiteSpace(title) || title.Contains('`', StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(title) ||
+                title.Contains('`', StringComparison.Ordinal) ||
+                string.Equals(title, "See also", StringComparison.Ordinal))
             {
                 continue;
             }
@@ -487,6 +489,11 @@ internal sealed class MkDocsNavigationRenderer
 
         normalizedContent = MarkdownFrontmatter.ApplyExistingOrDefault(fullPath, relativePath, normalizedContent);
         normalizedContent = MarkdownVerificationMarkers.ApplyExisting(fullPath, normalizedContent);
+        normalizedContent = MarkdownReferenceSkeleton.Apply(normalizedContent);
+        if (!normalizedContent.EndsWith(GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+        {
+            normalizedContent += GeneratedDocumentLineEndings.Canonical;
+        }
 
         if (check)
         {

@@ -148,6 +148,26 @@ public sealed class GeneratedDocumentWriterTests
         });
     }
 
+    [Test]
+    public void Write_WhenReferencePageIsMissingSkeleton_AddsTldrAndSeeAlso()
+    {
+        var docsRoot = CreateTempDocsRoot();
+
+        GeneratedDocumentWriter
+            .Create(docsRoot)
+            .Write([new GeneratedDocument("framework/functions/new-page.md", "# New Page\n\n## Details\n\nGenerated body.")]);
+
+        var content = File
+            .ReadAllText(Path.Combine(docsRoot, "docs", "framework", "functions", "new-page.md"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(content, Does.Contain("# New Page\n\n> TL;DR: Reference page for New Page.\n\n## Details"));
+            Assert.That(content, Does.EndWith("## See also\n\nUse the surrounding documentation navigation to move between related generated reference pages.\n"));
+        });
+    }
+
     private static string CreateTempDocsRoot()
     {
         var path = Path.Combine(Path.GetTempPath(), $"qaas-docs-generator-tests-{Guid.NewGuid():N}");
