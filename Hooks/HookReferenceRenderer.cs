@@ -598,6 +598,10 @@ internal sealed class HookReferenceRenderer
         var builder = new StringBuilder();
         builder.AppendLine($"# {title} Configurations Yaml View");
         builder.AppendLine();
+        builder.AppendLine("Use this generated scaffold as the starting point for the hook configuration block.");
+        builder.AppendLine();
+        builder.AppendLine("## Minimal example");
+        builder.AppendLine();
         builder.AppendLine("```yaml");
         foreach (var line in SchemaTraversal.RenderYaml(hookSchema.RootName, hookSchema.Schema))
         {
