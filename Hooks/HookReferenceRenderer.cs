@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -14,16 +15,41 @@ internal sealed class HookReferenceRenderer
     private const string GeneratedCatalogStart = "<!-- generated hook catalog start -->";
     private const string GeneratedCatalogEnd = "<!-- generated hook catalog end -->";
 
-    private static readonly IReadOnlyDictionary<string, HookKindSpec> KindSpecs =
-        new Dictionary<string, HookKindSpec>(StringComparer.Ordinal)
-        {
-            ["assertion"] = new("assertions/availableAssertions", "assertions/index.md", "Assertions", "QaaS.Common.Assertions"),
-            ["generator"] = new("generators/availableGenerators", "generators/index.md", "Generators", "QaaS.Common.Generators"),
-            ["probe"] = new("probes/availableProbes", "probes/index.md", "Probes", "QaaS.Common.Probes"),
-            ["processor"] = new("processors/availableProcessors", "processors/index.md", "Processors", "QaaS.Common.Processors")
-        };
+    private static readonly IReadOnlyDictionary<string, HookKindSpec> KindSpecs = new Dictionary<
+        string,
+        HookKindSpec
+    >(StringComparer.Ordinal)
+    {
+        ["assertion"] = new(
+            "assertions/availableAssertions",
+            "assertions/index.md",
+            "Assertions",
+            "QaaS.Common.Assertions"
+        ),
+        ["generator"] = new(
+            "generators/availableGenerators",
+            "generators/index.md",
+            "Generators",
+            "QaaS.Common.Generators"
+        ),
+        ["probe"] = new(
+            "probes/availableProbes",
+            "probes/index.md",
+            "Probes",
+            "QaaS.Common.Probes"
+        ),
+        ["processor"] = new(
+            "processors/availableProcessors",
+            "processors/index.md",
+            "Processors",
+            "QaaS.Common.Processors"
+        ),
+    };
 
-    public async Task<IReadOnlyList<GeneratedDocument>> RenderAsync(string docsRoot, string mirrorRoot)
+    public async Task<IReadOnlyList<GeneratedDocument>> RenderAsync(
+        string docsRoot,
+        string mirrorRoot
+    )
     {
         var workspaceRoot = ResolveWorkspaceRoot(docsRoot, mirrorRoot);
         var catalog = await LoadCatalogAsync(mirrorRoot);
@@ -36,7 +62,8 @@ internal sealed class HookReferenceRenderer
             var hooksRoot = Path.Combine(
                 docsRoot,
                 "docs",
-                spec.DocsRoot.Replace('/', Path.DirectorySeparatorChar));
+                spec.DocsRoot.Replace('/', Path.DirectorySeparatorChar)
+            );
 
             var sourceRoot = Path.Combine(workspaceRoot, spec.RepositoryDirectory);
             var docsSlugs = EnumerateDocsSlugs(hooksRoot, catalog, kind);
@@ -55,18 +82,28 @@ internal sealed class HookReferenceRenderer
                 if (string.IsNullOrWhiteSpace(summary))
                 {
                     throw new InvalidOperationException(
-                        $"Hook '{docsSlug}' in '{kind}' is missing a public XML summary in {sourceRoot}.");
+                        $"Hook '{docsSlug}' in '{kind}' is missing a public XML summary in {sourceRoot}."
+                    );
                 }
 
-                var customOverviewContent = ExtractCustomOverviewContent(existingOverviewBody, summary);
+                var customOverviewContent = ExtractCustomOverviewContent(
+                    existingOverviewBody,
+                    summary
+                );
                 var placement = documentation.Placement ?? InferPlacement(kind, docsSlug);
-                groupedHooks.Add(new HookIndexEntry(docsSlug, summary, placement.Group, placement.Subgroup));
+                groupedHooks.Add(
+                    new HookIndexEntry(docsSlug, summary, placement.Group, placement.Subgroup)
+                );
 
-                documents.Add(new GeneratedDocument(
-                    $"{spec.DocsRoot}/{docsSlug}/overview.md",
-                    GeneratedDocumentHasher.WithHeader(
-                        RenderOverviewPage(docsSlug, summary, customOverviewContent),
-                        [kind, docsSlug, "overview", placement.Group, placement.Subgroup])));
+                documents.Add(
+                    new GeneratedDocument(
+                        $"{spec.DocsRoot}/{docsSlug}/overview.md",
+                        GeneratedDocumentHasher.WithHeader(
+                            RenderOverviewPage(docsSlug, summary, customOverviewContent),
+                            [kind, docsSlug, "overview", placement.Group, placement.Subgroup]
+                        )
+                    )
+                );
 
                 if (!catalog.TryGetValue($"{kind}|{docsSlug}", out var hookCatalogEntry))
                 {
@@ -76,20 +113,29 @@ internal sealed class HookReferenceRenderer
                     }
 
                     throw new InvalidOperationException(
-                        $"Could not find a hook catalog entry for documented hook '{docsSlug}' in '{kind}'.");
+                        $"Could not find a hook catalog entry for documented hook '{docsSlug}' in '{kind}'."
+                    );
                 }
 
                 var hookSchema = await LoadHookSchemaAsync(mirrorRoot, hookCatalogEntry);
-                documents.Add(new GeneratedDocument(
-                    $"{spec.DocsRoot}/{docsSlug}/configuration/tableView.md",
-                    GeneratedDocumentHasher.WithHeader(
-                        RenderTableView(docsSlug, hookSchema),
-                        [hookCatalogEntry.FamilyId, docsSlug, "table-view"])));
-                documents.Add(new GeneratedDocument(
-                    $"{spec.DocsRoot}/{docsSlug}/configuration/yamlView.md",
-                    GeneratedDocumentHasher.WithHeader(
-                        RenderYamlView(docsSlug, hookSchema),
-                        [hookCatalogEntry.FamilyId, docsSlug, "yaml-view"])));
+                documents.Add(
+                    new GeneratedDocument(
+                        $"{spec.DocsRoot}/{docsSlug}/configuration/tableView.md",
+                        GeneratedDocumentHasher.WithHeader(
+                            RenderTableView(docsSlug, hookSchema),
+                            [hookCatalogEntry.FamilyId, docsSlug, "table-view"]
+                        )
+                    )
+                );
+                documents.Add(
+                    new GeneratedDocument(
+                        $"{spec.DocsRoot}/{docsSlug}/configuration/yamlView.md",
+                        GeneratedDocumentHasher.WithHeader(
+                            RenderYamlView(docsSlug, hookSchema),
+                            [hookCatalogEntry.FamilyId, docsSlug, "yaml-view"]
+                        )
+                    )
+                );
             }
 
             if (groupedHooks.Count != 0)
@@ -97,16 +143,21 @@ internal sealed class HookReferenceRenderer
                 var indexFullPath = Path.Combine(
                     docsRoot,
                     "docs",
-                    spec.IndexRelativePath.Replace('/', Path.DirectorySeparatorChar));
+                    spec.IndexRelativePath.Replace('/', Path.DirectorySeparatorChar)
+                );
                 var existingIndexContent = File.Exists(indexFullPath)
                     ? await File.ReadAllTextAsync(indexFullPath)
                     : $"# {spec.DisplayTitle}";
 
-                documents.Add(new GeneratedDocument(
-                    spec.IndexRelativePath,
-                    GeneratedDocumentHasher.WithHeader(
-                        RenderIndexPage(kind, spec, existingIndexContent, groupedHooks),
-                        [kind, "index"])));
+                documents.Add(
+                    new GeneratedDocument(
+                        spec.IndexRelativePath,
+                        GeneratedDocumentHasher.WithHeader(
+                            RenderIndexPage(kind, spec, existingIndexContent, groupedHooks),
+                            [kind, "index"]
+                        )
+                    )
+                );
             }
         }
 
@@ -117,17 +168,25 @@ internal sealed class HookReferenceRenderer
     {
         foreach (var candidate in EnumerateWorkspaceRootCandidates(docsRoot, mirrorRoot))
         {
-            if (KindSpecs.Values.All(spec => Directory.Exists(Path.Combine(candidate, spec.RepositoryDirectory))))
+            if (
+                KindSpecs.Values.All(spec =>
+                    Directory.Exists(Path.Combine(candidate, spec.RepositoryDirectory))
+                )
+            )
             {
                 return candidate;
             }
         }
 
         throw new InvalidOperationException(
-            $"Could not resolve a workspace root containing {string.Join(", ", KindSpecs.Values.Select(spec => spec.RepositoryDirectory))} from docs root '{docsRoot}' and mirror root '{mirrorRoot}'.");
+            $"Could not resolve a workspace root containing {string.Join(", ", KindSpecs.Values.Select(spec => spec.RepositoryDirectory))} from docs root '{docsRoot}' and mirror root '{mirrorRoot}'."
+        );
     }
 
-    private static IEnumerable<string> EnumerateWorkspaceRootCandidates(string docsRoot, string mirrorRoot)
+    private static IEnumerable<string> EnumerateWorkspaceRootCandidates(
+        string docsRoot,
+        string mirrorRoot
+    )
     {
         static IEnumerable<string> Expand(string path)
         {
@@ -144,16 +203,27 @@ internal sealed class HookReferenceRenderer
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static async Task<Dictionary<string, HookCatalogEntry>> LoadCatalogAsync(string mirrorRoot)
+    private static async Task<Dictionary<string, HookCatalogEntry>> LoadCatalogAsync(
+        string mirrorRoot
+    )
     {
         var entries = new Dictionary<string, HookCatalogEntry>(StringComparer.Ordinal);
 
         foreach (var familyId in new[] { "runner-family", "mocker-family" })
         {
-            var catalogPath = Path.Combine(mirrorRoot, "schemas", familyId, "latest", "hook-catalog.json");
+            var catalogPath = Path.Combine(
+                mirrorRoot,
+                "schemas",
+                familyId,
+                "latest",
+                "hook-catalog.json"
+            );
             await using var stream = File.OpenRead(catalogPath);
-            var catalog = await JsonSerializer.DeserializeAsync<HookCatalogFile>(stream, JsonDefaults.Options)
-                          ?? throw new InvalidOperationException($"Could not deserialize hook catalog from {catalogPath}.");
+            var catalog =
+                await JsonSerializer.DeserializeAsync<HookCatalogFile>(stream, JsonDefaults.Options)
+                ?? throw new InvalidOperationException(
+                    $"Could not deserialize hook catalog from {catalogPath}."
+                );
 
             foreach (var hookType in catalog.HookTypes)
             {
@@ -162,21 +232,32 @@ internal sealed class HookReferenceRenderer
                     continue;
                 }
 
-                var docsSlug = NormalizeDocsSlug(string.IsNullOrWhiteSpace(hookType.DocsSlug) ? hookType.Title : hookType.DocsSlug);
+                var docsSlug = NormalizeDocsSlug(
+                    string.IsNullOrWhiteSpace(hookType.DocsSlug)
+                        ? hookType.Title
+                        : hookType.DocsSlug
+                );
                 if (string.IsNullOrWhiteSpace(docsSlug))
                 {
                     continue;
                 }
 
-                entries[$"{hookType.HookKind}|{docsSlug}"] =
-                    new HookCatalogEntry(hookType.HookKind, docsSlug, familyId, hookType.ConfigurationSchemaJsonPointer);
+                entries[$"{hookType.HookKind}|{docsSlug}"] = new HookCatalogEntry(
+                    hookType.HookKind,
+                    docsSlug,
+                    familyId,
+                    hookType.ConfigurationSchemaJsonPointer
+                );
             }
         }
 
         return entries;
     }
 
-    private static async Task<HookDocumentation> LoadHookDocumentationAsync(string sourceRoot, string docsSlug)
+    private static async Task<HookDocumentation> LoadHookDocumentationAsync(
+        string sourceRoot,
+        string docsSlug
+    )
     {
         var sourceFile = FindHookSourceFile(sourceRoot, docsSlug);
         if (sourceFile is null)
@@ -191,13 +272,15 @@ internal sealed class HookReferenceRenderer
     private static IReadOnlyList<string> EnumerateDocsSlugs(
         string hooksRoot,
         IReadOnlyDictionary<string, HookCatalogEntry> catalog,
-        string kind)
+        string kind
+    )
     {
-        var catalogSlugs = catalog.Values
-            .Where(entry => string.Equals(entry.Kind, kind, StringComparison.Ordinal))
+        var catalogSlugs = catalog
+            .Values.Where(entry => string.Equals(entry.Kind, kind, StringComparison.Ordinal))
             .Select(entry => entry.DocsSlug);
         var existingSlugs = Directory.Exists(hooksRoot)
-            ? Directory.EnumerateDirectories(hooksRoot)
+            ? Directory
+                .EnumerateDirectories(hooksRoot)
                 .Select(Path.GetFileName)
                 .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
                 .Cast<string>()
@@ -210,14 +293,22 @@ internal sealed class HookReferenceRenderer
             .ToList();
     }
 
-    internal static HookDocumentation ParseHookDocumentation(string sourceText, string sourceFile, string docsSlug)
+    internal static HookDocumentation ParseHookDocumentation(
+        string sourceText,
+        string sourceFile,
+        string docsSlug
+    )
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(sourceText, path: sourceFile);
         var root = syntaxTree.GetRoot();
         var candidates = root.DescendantNodes()
             .OfType<TypeDeclarationSyntax>()
-            .Where(candidate => string.Equals(candidate.Identifier.Text, docsSlug, StringComparison.Ordinal))
-            .Select(candidate => (Type: candidate, Documentation: DocumentationCommentParser.Parse(candidate)))
+            .Where(candidate =>
+                string.Equals(candidate.Identifier.Text, docsSlug, StringComparison.Ordinal)
+            )
+            .Select(candidate =>
+                (Type: candidate, Documentation: DocumentationCommentParser.Parse(candidate))
+            )
             .ToList();
 
         if (candidates.Count == 0)
@@ -227,7 +318,9 @@ internal sealed class HookReferenceRenderer
 
         var bestCandidate = candidates
             .OrderByDescending(candidate => candidate.Documentation.Placement is not null)
-            .ThenByDescending(candidate => !string.IsNullOrWhiteSpace(candidate.Documentation.Summary))
+            .ThenByDescending(candidate =>
+                !string.IsNullOrWhiteSpace(candidate.Documentation.Summary)
+            )
             .ThenBy(candidate => candidate.Type.TypeParameterList?.Parameters.Count ?? 0)
             .First();
 
@@ -239,7 +332,8 @@ internal sealed class HookReferenceRenderer
 
     private static string? FindHookSourceFile(string sourceRoot, string docsSlug)
     {
-        return Directory.EnumerateFiles(sourceRoot, $"{docsSlug}.cs", SearchOption.AllDirectories)
+        return Directory
+            .EnumerateFiles(sourceRoot, $"{docsSlug}.cs", SearchOption.AllDirectories)
             .Where(path => !IsIgnoredPath(sourceRoot, path))
             .OrderBy(path => path, StringComparer.Ordinal)
             .FirstOrDefault();
@@ -253,9 +347,7 @@ internal sealed class HookReferenceRenderer
         }
 
         var content = await File.ReadAllTextAsync(overviewPath);
-        var normalized = content
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Trim();
+        var normalized = content.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
 
         if (string.IsNullOrWhiteSpace(normalized))
         {
@@ -301,8 +393,12 @@ internal sealed class HookReferenceRenderer
             lines.RemoveAt(lines.Count - 1);
         }
 
-        const string generatedOverviewFooter = "_This overview is generated automatically from the hook source summary._";
-        if (lines.Count != 0 && string.Equals(lines[^1], generatedOverviewFooter, StringComparison.Ordinal))
+        const string generatedOverviewFooter =
+            "_This overview is generated automatically from the hook source summary._";
+        if (
+            lines.Count != 0
+            && string.Equals(lines[^1], generatedOverviewFooter, StringComparison.Ordinal)
+        )
         {
             lines.RemoveAt(lines.Count - 1);
 
@@ -343,8 +439,8 @@ internal sealed class HookReferenceRenderer
     private static bool IsVerificationMarkerLine(string line)
     {
         var trimmed = line.Trim();
-        return trimmed.StartsWith("<!-- Verified-against:", StringComparison.Ordinal) &&
-               trimmed.EndsWith("-->", StringComparison.Ordinal);
+        return trimmed.StartsWith("<!-- Verified-against:", StringComparison.Ordinal)
+            && trimmed.EndsWith("-->", StringComparison.Ordinal);
     }
 
     private static bool IsIgnoredPath(string sourceRoot, string filePath)
@@ -352,30 +448,50 @@ internal sealed class HookReferenceRenderer
         var relativePath = Path.GetRelativePath(sourceRoot, filePath);
         var segments = relativePath.Split(
             [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-            StringSplitOptions.RemoveEmptyEntries);
+            StringSplitOptions.RemoveEmptyEntries
+        );
 
         return segments.Any(segment =>
-            string.Equals(segment, "bin", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(segment, "obj", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(segment, "Tests", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(segment, "Test", StringComparison.OrdinalIgnoreCase) ||
-            segment.EndsWith(".Tests", StringComparison.OrdinalIgnoreCase) ||
-            segment.EndsWith(".Test", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(segment, "TestResults", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(segment, ".git", StringComparison.OrdinalIgnoreCase));
+            string.Equals(segment, "bin", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(segment, "obj", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(segment, "Tests", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(segment, "Test", StringComparison.OrdinalIgnoreCase)
+            || segment.EndsWith(".Tests", StringComparison.OrdinalIgnoreCase)
+            || segment.EndsWith(".Test", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(segment, "TestResults", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(segment, ".git", StringComparison.OrdinalIgnoreCase)
+        );
     }
 
-    private static async Task<HookSchemaDocument> LoadHookSchemaAsync(string mirrorRoot, HookCatalogEntry hookCatalogEntry)
+    private static async Task<HookSchemaDocument> LoadHookSchemaAsync(
+        string mirrorRoot,
+        HookCatalogEntry hookCatalogEntry
+    )
     {
-        var schemaPath = Path.Combine(mirrorRoot, "schemas", hookCatalogEntry.FamilyId, "latest", "schema.json");
-        var root = JsonNode.Parse(await File.ReadAllTextAsync(schemaPath))
-                   ?? throw new InvalidOperationException($"Could not parse schema json from {schemaPath}.");
+        var schemaPath = Path.Combine(
+            mirrorRoot,
+            "schemas",
+            hookCatalogEntry.FamilyId,
+            "latest",
+            "schema.json"
+        );
+        var root =
+            JsonNode.Parse(await File.ReadAllTextAsync(schemaPath))
+            ?? throw new InvalidOperationException(
+                $"Could not parse schema json from {schemaPath}."
+            );
 
         var schemaNode = ResolveJsonPointer(root, hookCatalogEntry.ConfigurationSchemaJsonPointer);
         var rootName = GetLeafPointerSegment(hookCatalogEntry.ConfigurationSchemaJsonPointer);
-        var parentNode = ResolveJsonPointer(root, GetParentPointer(hookCatalogEntry.ConfigurationSchemaJsonPointer));
-        var required = parentNode["required"] is JsonArray requiredArray &&
-                       requiredArray.Any(value => string.Equals(value?.GetValue<string>(), rootName, StringComparison.Ordinal));
+        var parentNode = ResolveJsonPointer(
+            root,
+            GetParentPointer(hookCatalogEntry.ConfigurationSchemaJsonPointer)
+        );
+        var required =
+            parentNode["required"] is JsonArray requiredArray
+            && requiredArray.Any(value =>
+                string.Equals(value?.GetValue<string>(), rootName, StringComparison.Ordinal)
+            );
 
         var schema = await JsonSchema.FromJsonAsync(schemaNode.ToJsonString());
         return new HookSchemaDocument(rootName, required, schema);
@@ -388,9 +504,15 @@ internal sealed class HookReferenceRenderer
         {
             current = current switch
             {
-                JsonObject jsonObject when jsonObject.TryGetPropertyValue(segment, out var child) && child is not null => child,
-                JsonArray jsonArray when int.TryParse(segment, out var index) && jsonArray[index] is not null => jsonArray[index]!,
-                _ => throw new InvalidOperationException($"Could not resolve JSON pointer '{pointer}'.")
+                JsonObject jsonObject
+                    when jsonObject.TryGetPropertyValue(segment, out var child)
+                        && child is not null => child,
+                JsonArray jsonArray
+                    when int.TryParse(segment, out var index) && jsonArray[index] is not null =>
+                    jsonArray[index]!,
+                _ => throw new InvalidOperationException(
+                    $"Could not resolve JSON pointer '{pointer}'."
+                ),
             };
         }
 
@@ -399,7 +521,10 @@ internal sealed class HookReferenceRenderer
 
     private static IEnumerable<string> GetPointerSegments(string pointer)
     {
-        if (string.IsNullOrWhiteSpace(pointer) || string.Equals(pointer, "#", StringComparison.Ordinal))
+        if (
+            string.IsNullOrWhiteSpace(pointer)
+            || string.Equals(pointer, "#", StringComparison.Ordinal)
+        )
         {
             return Array.Empty<string>();
         }
@@ -407,7 +532,11 @@ internal sealed class HookReferenceRenderer
         return pointer
             .TrimStart('#')
             .Split('/', StringSplitOptions.RemoveEmptyEntries)
-            .Select(segment => segment.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal));
+            .Select(segment =>
+                segment
+                    .Replace("~1", "/", StringComparison.Ordinal)
+                    .Replace("~0", "~", StringComparison.Ordinal)
+            );
     }
 
     private static string GetParentPointer(string pointer)
@@ -433,7 +562,10 @@ internal sealed class HookReferenceRenderer
         return genericMarkerIndex >= 0 ? trimmed[..genericMarkerIndex] : trimmed;
     }
 
-    private static string? ExtractCustomOverviewContent(string? existingOverviewBody, string summary)
+    private static string? ExtractCustomOverviewContent(
+        string? existingOverviewBody,
+        string summary
+    )
     {
         if (string.IsNullOrWhiteSpace(existingOverviewBody))
         {
@@ -443,9 +575,7 @@ internal sealed class HookReferenceRenderer
         var normalizedBody = existingOverviewBody
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Trim();
-        var normalizedSummary = summary
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Trim();
+        var normalizedSummary = summary.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
 
         if (string.Equals(normalizedBody, normalizedSummary, StringComparison.Ordinal))
         {
@@ -464,9 +594,7 @@ internal sealed class HookReferenceRenderer
             return normalizedBody[(firstHeadingIndex + 1)..].Trim();
         }
 
-        return normalizedBody.StartsWith("## ", StringComparison.Ordinal)
-            ? normalizedBody
-            : null;
+        return normalizedBody.StartsWith("## ", StringComparison.Ordinal) ? normalizedBody : null;
     }
 
     private static DocsPlacement InferPlacement(string kind, string docsSlug)
@@ -477,14 +605,10 @@ internal sealed class HookReferenceRenderer
     internal static string RenderOverviewPage(
         string title,
         string summary,
-        string? customOverviewContent)
+        string? customOverviewContent
+    )
     {
-        var lines = new List<string>
-        {
-            $"# {title}",
-            string.Empty,
-            summary
-        };
+        var lines = new List<string> { $"# {title}", string.Empty, summary };
 
         if (!string.IsNullOrWhiteSpace(customOverviewContent))
         {
@@ -499,7 +623,8 @@ internal sealed class HookReferenceRenderer
         string kind,
         HookKindSpec spec,
         string existingContent,
-        IReadOnlyList<HookIndexEntry> entries)
+        IReadOnlyList<HookIndexEntry> entries
+    )
     {
         var relativeHooksRoot = spec.DocsRoot.Split('/').Last();
         var builder = new StringBuilder();
@@ -509,23 +634,30 @@ internal sealed class HookReferenceRenderer
         builder.AppendLine(GeneratedCatalogStart);
         builder.AppendLine("## Available Hooks");
         builder.AppendLine();
-        builder.AppendLine("The built-in hooks below are grouped by usage area so it is easier to shortlist the right hook before drilling into configuration details.");
+        builder.AppendLine(
+            "The built-in hooks below are grouped by usage area so it is easier to shortlist the right hook before drilling into configuration details."
+        );
 
-        foreach (var group in entries
-                     .GroupBy(entry => entry.Group, StringComparer.Ordinal)
-                     .OrderBy(group => GroupOrder(kind, group.Key))
-                     .ThenBy(group => group.Key, StringComparer.Ordinal))
+        foreach (
+            var group in entries
+                .GroupBy(entry => entry.Group, StringComparer.Ordinal)
+                .OrderBy(group => GroupOrder(kind, group.Key))
+                .ThenBy(group => group.Key, StringComparer.Ordinal)
+        )
         {
             builder.AppendLine();
             builder.AppendLine($"### {group.Key}");
             builder.AppendLine();
 
-            foreach (var entry in group
-                         .OrderBy(candidate => candidate.Subgroup, StringComparer.Ordinal)
-                         .ThenBy(candidate => candidate.DocsSlug, StringComparer.Ordinal))
+            foreach (
+                var entry in group
+                    .OrderBy(candidate => candidate.Subgroup, StringComparer.Ordinal)
+                    .ThenBy(candidate => candidate.DocsSlug, StringComparer.Ordinal)
+            )
             {
                 builder.AppendLine(
-                    $"- [{entry.DocsSlug}]({relativeHooksRoot}/{entry.DocsSlug}/overview.md): {LeadParagraph(entry.Summary)}");
+                    $"- [{entry.DocsSlug}]({relativeHooksRoot}/{entry.DocsSlug}/overview.md): {LeadParagraph(entry.Summary)}"
+                );
             }
         }
 
@@ -536,16 +668,18 @@ internal sealed class HookReferenceRenderer
 
     private static string StripGeneratedCatalog(string content)
     {
-        var normalized = content
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .TrimEnd();
+        var normalized = content.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
         var startIndex = normalized.IndexOf(GeneratedCatalogStart, StringComparison.Ordinal);
         if (startIndex < 0)
         {
             return normalized;
         }
 
-        var endIndex = normalized.IndexOf(GeneratedCatalogEnd, startIndex, StringComparison.Ordinal);
+        var endIndex = normalized.IndexOf(
+            GeneratedCatalogEnd,
+            startIndex,
+            StringComparison.Ordinal
+        );
         return endIndex < 0
             ? normalized[..startIndex].TrimEnd()
             : normalized[..startIndex].TrimEnd();
@@ -564,14 +698,38 @@ internal sealed class HookReferenceRenderer
     {
         string[] orderedGroups = kind switch
         {
-            "assertion" => ["Latency", "Hermeticity", "Content validation", "Contract validation", "Transport metadata"],
+            "assertion" =>
+            [
+                "Latency",
+                "Hermeticity",
+                "Content validation",
+                "Contract validation",
+                "Transport metadata",
+            ],
             "generator" => ["External sources", "Existing data sources", "Structured payloads"],
-            "probe" => ["RabbitMQ administration", "Redis maintenance", "Databases", "SQL maintenance", "Cluster orchestration"],
-            "processor" => ["Static responses", "Request-derived responses", "Transformations", "Data-driven responses", "Error responses"],
-            _ => []
+            "probe" =>
+            [
+                "RabbitMQ administration",
+                "Redis maintenance",
+                "Databases",
+                "SQL maintenance",
+                "Cluster orchestration",
+            ],
+            "processor" =>
+            [
+                "Static responses",
+                "Request-derived responses",
+                "Transformations",
+                "Data-driven responses",
+                "Error responses",
+            ],
+            _ => [],
         };
 
-        var index = Array.FindIndex(orderedGroups, candidate => string.Equals(candidate, group, StringComparison.Ordinal));
+        var index = Array.FindIndex(
+            orderedGroups,
+            candidate => string.Equals(candidate, group, StringComparison.Ordinal)
+        );
         return index >= 0 ? index : orderedGroups.Length;
     }
 
@@ -587,7 +745,9 @@ internal sealed class HookReferenceRenderer
         builder.AppendLine("| ------------- | ---- | -------- | ------- | ----------- |");
         foreach (var row in rows)
         {
-            builder.AppendLine($"| `{row.Path}` | `{row.Type}` | {row.Required} | {Escape(row.DefaultValue)} | {Escape(row.Description)} |");
+            builder.AppendLine(
+                $"| `{row.Path}` | `{row.Type}` | {row.Required} | {Escape(row.DefaultValue)} | {Escape(row.Description)} |"
+            );
         }
 
         return builder.ToString().TrimEnd();
@@ -598,7 +758,9 @@ internal sealed class HookReferenceRenderer
         var builder = new StringBuilder();
         builder.AppendLine($"# {title} Configurations Yaml View");
         builder.AppendLine();
-        builder.AppendLine("Use this generated scaffold as the starting point for the hook configuration block.");
+        builder.AppendLine(
+            "Use this generated scaffold as the starting point for the hook configuration block."
+        );
         builder.AppendLine();
         builder.AppendLine("## Minimal example");
         builder.AppendLine();
@@ -616,7 +778,12 @@ internal sealed class HookReferenceRenderer
         return MarkdownTableCellFormatter.Format(value);
     }
 
-    private sealed record HookKindSpec(string DocsRoot, string IndexRelativePath, string DisplayTitle, string RepositoryDirectory);
+    private sealed record HookKindSpec(
+        string DocsRoot,
+        string IndexRelativePath,
+        string DisplayTitle,
+        string RepositoryDirectory
+    );
 
     private sealed record HookCatalogFile(IReadOnlyList<HookCatalogHookType> HookTypes);
 
@@ -624,32 +791,61 @@ internal sealed class HookReferenceRenderer
         string HookKind,
         string Title,
         string DocsSlug,
-        string ConfigurationSchemaJsonPointer);
+        string ConfigurationSchemaJsonPointer
+    );
 
     private sealed record HookCatalogEntry(
         string Kind,
         string DocsSlug,
         string FamilyId,
-        string ConfigurationSchemaJsonPointer);
+        string ConfigurationSchemaJsonPointer
+    );
 
     internal sealed record HookDocumentation(string? Summary, DocsPlacement? Placement);
 
-    private sealed record HookIndexEntry(string DocsSlug, string Summary, string Group, string Subgroup);
+    private sealed record HookIndexEntry(
+        string DocsSlug,
+        string Summary,
+        string Group,
+        string Subgroup
+    );
 
     private sealed record HookSchemaDocument(string RootName, bool Required, JsonSchema Schema);
 
-    private sealed record TableRow(string Path, string Type, string Required, string DefaultValue, string Description);
+    private sealed record TableRow(
+        string Path,
+        string Type,
+        string Required,
+        string DefaultValue,
+        string Description
+    );
 
     private static class SchemaTraversal
     {
         private const string Yes = "&#10004";
         private const string No = "&#10006";
 
-        public static void Traverse(string path, JsonSchema schema, bool required, IList<TableRow> rows)
+        public static void Traverse(
+            string path,
+            JsonSchema schema,
+            bool required,
+            IList<TableRow> rows
+        )
         {
-            rows.Add(new TableRow(path, DescribeType(schema), required ? Yes : No, schema.Default?.ToString() ?? string.Empty, schema.Description ?? string.Empty));
+            rows.Add(
+                new TableRow(
+                    path,
+                    DescribeType(schema),
+                    required ? Yes : No,
+                    schema.Default?.ToString() ?? string.Empty,
+                    schema.Description ?? string.Empty
+                )
+            );
 
-            if (schema.Type.HasFlag(JsonObjectType.Array) && TryGetItemSchema(schema, out var itemSchema))
+            if (
+                schema.Type.HasFlag(JsonObjectType.Array)
+                && TryGetItemSchema(schema, out var itemSchema)
+            )
             {
                 if (itemSchema.ActualSchema.Type.HasFlag(JsonObjectType.Object))
                 {
@@ -657,7 +853,15 @@ internal sealed class HookReferenceRenderer
                 }
                 else
                 {
-                    rows.Add(new TableRow(path + "[]", DescribeType(itemSchema.ActualSchema), No, itemSchema.Default?.ToString() ?? string.Empty, itemSchema.Description ?? string.Empty));
+                    rows.Add(
+                        new TableRow(
+                            path + "[]",
+                            DescribeType(itemSchema.ActualSchema),
+                            No,
+                            itemSchema.Default?.ToString() ?? string.Empty,
+                            itemSchema.Description ?? string.Empty
+                        )
+                    );
                 }
 
                 return;
@@ -670,7 +874,12 @@ internal sealed class HookReferenceRenderer
 
             foreach (var child in OrderProperties(schema))
             {
-                Traverse($"{path}.{child.Key}", child.Value.ActualSchema, schema.RequiredProperties.Contains(child.Key), rows);
+                Traverse(
+                    $"{path}.{child.Key}",
+                    child.Value.ActualSchema,
+                    schema.RequiredProperties.Contains(child.Key),
+                    rows
+                );
             }
         }
 
@@ -686,12 +895,16 @@ internal sealed class HookReferenceRenderer
             int indentLevel,
             string propertyName,
             JsonSchema schema,
-            string? linePrefix = null)
+            string? linePrefix = null
+        )
         {
             var indent = new string(' ', indentLevel * 2);
             var propertyLine = $"{indent}{linePrefix}{propertyName}:";
 
-            if (schema.Type.HasFlag(JsonObjectType.Array) && TryGetItemSchema(schema, out var itemSchema))
+            if (
+                schema.Type.HasFlag(JsonObjectType.Array)
+                && TryGetItemSchema(schema, out var itemSchema)
+            )
             {
                 if (itemSchema.ActualSchema.Type.HasFlag(JsonObjectType.Object))
                 {
@@ -708,7 +921,8 @@ internal sealed class HookReferenceRenderer
                         indentLevel + 1,
                         children[0].Key,
                         children[0].Value.ActualSchema,
-                        "- ");
+                        "- "
+                    );
 
                     foreach (var child in children.Skip(1))
                     {
@@ -717,7 +931,8 @@ internal sealed class HookReferenceRenderer
                 }
                 else
                 {
-                    lines.Add($"{indent}{linePrefix}{propertyName}: []");
+                    lines.Add(propertyLine);
+                    lines.Add($"{indent}  - {RenderSampleScalar(itemSchema.ActualSchema)}");
                 }
 
                 return;
@@ -726,21 +941,122 @@ internal sealed class HookReferenceRenderer
             if (schema.Type.HasFlag(JsonObjectType.Object) && schema.Properties.Count != 0)
             {
                 lines.Add(propertyLine);
+                var childIndentLevel = indentLevel + (linePrefix is null ? 1 : 2);
                 foreach (var child in OrderProperties(schema))
                 {
-                    RenderYamlCore(lines, indentLevel + 1, child.Key, child.Value.ActualSchema);
+                    RenderYamlCore(lines, childIndentLevel, child.Key, child.Value.ActualSchema);
                 }
 
                 return;
             }
 
-            lines.Add(propertyLine);
+            lines.Add($"{propertyLine} {RenderSampleScalar(schema)}");
         }
 
-        private static IEnumerable<KeyValuePair<string, JsonSchemaProperty>> OrderProperties(JsonSchema schema)
+        private static string RenderSampleScalar(JsonSchema schema)
         {
-            return schema.Properties
-                .OrderBy(property => Category(property.Value.ActualSchema))
+            foreach (var candidate in GetCandidateSchemas(schema))
+            {
+                var enumValue = candidate.Enumeration.FirstOrDefault(value => value is not null);
+                if (enumValue is not null)
+                {
+                    return FormatYamlScalar(enumValue);
+                }
+            }
+
+            if (HasPlaceholderPattern(schema) && HasType(schema, JsonObjectType.String))
+            {
+                return "\"${value}\"";
+            }
+
+            if (schema.Default is not null)
+            {
+                return FormatYamlScalar(schema.Default);
+            }
+
+            if (HasType(schema, JsonObjectType.Boolean))
+            {
+                return "true";
+            }
+
+            if (HasType(schema, JsonObjectType.Integer))
+            {
+                return "1";
+            }
+
+            if (HasType(schema, JsonObjectType.Number))
+            {
+                return "1.0";
+            }
+
+            if (HasType(schema, JsonObjectType.String))
+            {
+                return "\"value\"";
+            }
+
+            if (HasType(schema, JsonObjectType.Array))
+            {
+                return "[]";
+            }
+
+            if (HasType(schema, JsonObjectType.Object))
+            {
+                return "{}";
+            }
+
+            return "\"value\"";
+        }
+
+        private static bool HasType(JsonSchema schema, JsonObjectType type)
+        {
+            return GetCandidateSchemas(schema).Any(candidate => candidate.Type.HasFlag(type));
+        }
+
+        private static IEnumerable<JsonSchema> GetCandidateSchemas(JsonSchema schema)
+        {
+            yield return schema;
+
+            foreach (var candidate in schema.AnyOf.Concat(schema.OneOf).Concat(schema.AllOf))
+            {
+                yield return candidate.ActualSchema;
+            }
+        }
+
+        private static bool HasPlaceholderPattern(JsonSchema schema)
+        {
+            return GetCandidateSchemas(schema)
+                .Any(candidate =>
+                    string.Equals(candidate.Pattern, @"\$\{.*\}", StringComparison.Ordinal)
+                );
+        }
+
+        private static string FormatYamlScalar(object value)
+        {
+            return value switch
+            {
+                bool boolean => boolean ? "true" : "false",
+                byte or sbyte or short or ushort or int or uint or long or ulong =>
+                    Convert.ToString(value, CultureInfo.InvariantCulture) ?? "1",
+                float or double or decimal => Convert.ToString(value, CultureInfo.InvariantCulture)
+                    ?? "1.0",
+                _ => QuoteYamlString(value.ToString() ?? "value"),
+            };
+        }
+
+        private static string QuoteYamlString(string value)
+        {
+            var escaped = value
+                .Replace("\\", "\\\\", StringComparison.Ordinal)
+                .Replace("\"", "\\\"", StringComparison.Ordinal);
+            return $"\"{escaped}\"";
+        }
+
+        private static IEnumerable<KeyValuePair<string, JsonSchemaProperty>> OrderProperties(
+            JsonSchema schema
+        )
+        {
+            return schema
+                .Properties.OrderBy(property => Category(property.Value.ActualSchema))
                 .ThenByDescending(property => schema.RequiredProperties.Contains(property.Key))
                 .ThenBy(property => property.Key, StringComparer.Ordinal);
         }
@@ -769,8 +1085,8 @@ internal sealed class HookReferenceRenderer
 
             if (schema.Type == JsonObjectType.None && schema.AnyOf.Count != 0)
             {
-                var anyOfTypes = schema.AnyOf
-                    .SelectMany(GetTypeNames)
+                var anyOfTypes = schema
+                    .AnyOf.SelectMany(GetTypeNames)
                     .Distinct(StringComparer.Ordinal)
                     .ToList();
                 return anyOfTypes.Count != 0
@@ -784,9 +1100,12 @@ internal sealed class HookReferenceRenderer
 
         private static IEnumerable<string> GetTypeNames(JsonSchema schema)
         {
-            return schema.Type.ToString()
+            return schema
+                .Type.ToString()
                 .Split(", ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(type => !string.Equals(type, nameof(JsonObjectType.None), StringComparison.Ordinal))
+                .Where(type =>
+                    !string.Equals(type, nameof(JsonObjectType.None), StringComparison.Ordinal)
+                )
                 .Select(ToFriendlyTypeName)
                 .OrderBy(type => string.Equals(type, "null", StringComparison.Ordinal) ? 1 : 0)
                 .ThenBy(type => type, StringComparer.Ordinal);
@@ -804,7 +1123,7 @@ internal sealed class HookReferenceRenderer
                 "number" => "number",
                 "object" => "object",
                 "string" => "string",
-                _ => typeName
+                _ => typeName,
             };
         }
 
