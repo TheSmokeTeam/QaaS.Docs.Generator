@@ -47,6 +47,7 @@ internal sealed class GeneratedDocumentWriter
                 fullPath,
                 document.RelativePath,
                 normalizedContent);
+            normalizedContent = MarkdownVerificationMarkers.ApplyExisting(fullPath, normalizedContent);
 
             if (_dryRun)
             {
@@ -70,6 +71,85 @@ internal sealed class GeneratedDocumentWriter
         }
 
         return failures;
+    }
+}
+
+internal static class MarkdownVerificationMarkers
+{
+    private const string MarkerPrefix = "<!-- Verified-against:";
+
+    public static string ApplyExisting(string fullPath, string generatedContent)
+    {
+        var normalizedContent = GeneratedDocumentLineEndings.Normalize(generatedContent);
+        if (ContainsMarker(normalizedContent) || !File.Exists(fullPath))
+        {
+            return normalizedContent;
+        }
+
+        var existingContent = GeneratedDocumentLineEndings.Normalize(File.ReadAllText(fullPath));
+        var markers = ExtractMarkers(existingContent).ToList();
+        return markers.Count == 0
+            ? normalizedContent
+            : InsertAfterFrontmatter(normalizedContent, markers);
+    }
+
+    private static bool ContainsMarker(string content)
+    {
+        return content.Contains(MarkerPrefix, StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<string> ExtractMarkers(string content)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var line in GeneratedDocumentLineEndings.Normalize(content).Split(GeneratedDocumentLineEndings.Canonical))
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith(MarkerPrefix, StringComparison.Ordinal) ||
+                !trimmed.EndsWith("-->", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (seen.Add(trimmed))
+            {
+                yield return trimmed;
+            }
+        }
+    }
+
+    private static string InsertAfterFrontmatter(string content, IReadOnlyList<string> markers)
+    {
+        var markerBlock = string.Join(GeneratedDocumentLineEndings.Canonical, markers);
+        var normalized = GeneratedDocumentLineEndings.Normalize(content);
+        if (normalized.StartsWith("---" + GeneratedDocumentLineEndings.Canonical, StringComparison.Ordinal))
+        {
+            var frontmatterEnd = normalized.IndexOf(
+                GeneratedDocumentLineEndings.Canonical + "---" + GeneratedDocumentLineEndings.Canonical,
+                GeneratedDocumentLineEndings.Canonical.Length,
+                StringComparison.Ordinal);
+            if (frontmatterEnd >= 0)
+            {
+                var splitIndex = frontmatterEnd + GeneratedDocumentLineEndings.Canonical.Length + "---".Length;
+                var frontmatter = normalized[..splitIndex].TrimEnd('\r', '\n');
+                var body = normalized[splitIndex..].TrimStart('\r', '\n');
+                return string.Join(
+                    GeneratedDocumentLineEndings.Canonical,
+                    [
+                        frontmatter,
+                        markerBlock,
+                        string.Empty,
+                        body
+                    ]);
+            }
+        }
+
+        return string.Join(
+            GeneratedDocumentLineEndings.Canonical,
+            [
+                markerBlock,
+                string.Empty,
+                normalized.TrimStart('\r', '\n')
+            ]);
     }
 }
 

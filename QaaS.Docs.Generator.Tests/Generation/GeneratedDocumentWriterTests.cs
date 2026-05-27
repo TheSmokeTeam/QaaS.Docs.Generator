@@ -44,6 +44,44 @@ public sealed class GeneratedDocumentWriterTests
     }
 
     [Test]
+    public void Write_WhenExistingGeneratedPageHasVerificationMarkers_PreservesThem()
+    {
+        var docsRoot = CreateTempDocsRoot();
+        var pagePath = Path.Combine(docsRoot, "docs", "assertions", "availableAssertions", "DelayByAverage", "overview.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(pagePath)!);
+        File.WriteAllText(
+            pagePath,
+            """
+            ---
+            id: assertions.available.delaybyaverage.overview
+            type: reference
+            status: stable
+            since: 2.0.0
+            last_verified: 2026-05-22
+            applies_to: [assertions]
+            keywords: [assertions, DelayByAverage]
+            summary: "Existing summary."
+            ---
+            <!-- Verified-against: QaaS.Common.Assertions\QaaS.Common.Assertions\Delay\DelayByAverage.cs -->
+
+            # Old
+            """);
+
+        GeneratedDocumentWriter
+            .Create(docsRoot)
+            .Write([new GeneratedDocument("assertions/availableAssertions/DelayByAverage/overview.md", "# DelayByAverage\n\nGenerated body.")]);
+
+        var content = File.ReadAllText(pagePath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(content, Does.Contain("<!-- Verified-against: QaaS.Common.Assertions\\QaaS.Common.Assertions\\Delay\\DelayByAverage.cs -->"));
+            Assert.That(content, Does.Contain("# DelayByAverage"));
+            Assert.That(content, Does.Not.Contain("# Old"));
+        });
+    }
+
+    [Test]
     public void Write_WhenGeneratedPageIsNew_AddsDefaultFrontmatter()
     {
         var docsRoot = CreateTempDocsRoot();
