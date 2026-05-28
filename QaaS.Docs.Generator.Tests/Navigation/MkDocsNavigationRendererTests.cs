@@ -79,6 +79,7 @@ public sealed class MkDocsNavigationRendererTests
                     "<!-- Verified-against: QaaS.Runner\\QaaS.Runner.Assertions\\ConfigurationObjects\\AssertionBuilder.cs -->"
                 )
             );
+            Assert.That(sectionPage, Does.Not.Contain("[Functions](../index.md)"));
         }
         finally
         {

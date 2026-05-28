@@ -535,6 +535,7 @@ internal sealed class MkDocsNavigationRenderer
             .Take(section.EndLineExclusive - section.StartLineIndex - 1)
             .ToList();
 
+        RemoveTrailingSeeAlsoSection(bodyLines);
         NormalizeNestedHeadings(bodyLines, section.Level - 1);
         TrimBlankLines(bodyLines);
 
@@ -562,6 +563,32 @@ internal sealed class MkDocsNavigationRenderer
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    private static void RemoveTrailingSeeAlsoSection(List<string> lines)
+    {
+        for (var index = 0; index < lines.Count; index++)
+        {
+            var match = HeadingRegex.Match(lines[index]);
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            if (
+                !string.Equals(
+                    CleanHeading(match.Groups["title"].Value),
+                    "See also",
+                    StringComparison.Ordinal
+                )
+            )
+            {
+                continue;
+            }
+
+            lines.RemoveRange(index, lines.Count - index);
+            return;
+        }
     }
 
     private static IReadOnlyList<string> ExtractVerificationMarkers(IReadOnlyList<string> lines)
