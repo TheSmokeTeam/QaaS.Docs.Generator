@@ -539,6 +539,16 @@ internal sealed class MkDocsNavigationRenderer
         TrimBlankLines(bodyLines);
 
         var builder = new StringBuilder();
+        foreach (var marker in ExtractVerificationMarkers(page.Lines))
+        {
+            builder.AppendLine(marker);
+        }
+
+        if (builder.Length != 0)
+        {
+            builder.AppendLine();
+        }
+
         builder.AppendLine($"# {title}");
         builder.AppendLine();
         builder.AppendLine(
@@ -552,6 +562,31 @@ internal sealed class MkDocsNavigationRenderer
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    private static IReadOnlyList<string> ExtractVerificationMarkers(IReadOnlyList<string> lines)
+    {
+        var markers = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            if (
+                !trimmed.StartsWith("<!-- Verified-against:", StringComparison.Ordinal)
+                || !trimmed.EndsWith("-->", StringComparison.Ordinal)
+            )
+            {
+                continue;
+            }
+
+            if (seen.Add(trimmed))
+            {
+                markers.Add(trimmed);
+            }
+        }
+
+        return markers;
     }
 
     private static void NormalizeNestedHeadings(IList<string> lines, int headingReduction)
