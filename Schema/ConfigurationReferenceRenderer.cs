@@ -439,7 +439,15 @@ internal sealed class ConfigurationReferenceRenderer
                 }
                 else
                 {
-                    lines.Add($"{indent}{linePrefix}{propertyName}: []");
+                    if (schema.MinItems > 0)
+                    {
+                        lines.Add(propertyLine);
+                        lines.Add($"{indent}  - {RenderSampleScalar(itemSchema.ActualSchema)}");
+                    }
+                    else
+                    {
+                        lines.Add($"{indent}{linePrefix}{propertyName}: []");
+                    }
                 }
 
                 return;
@@ -483,17 +491,12 @@ internal sealed class ConfigurationReferenceRenderer
 
             if (HasType(schema, JsonObjectType.Integer))
             {
-                return FormatMinimum(schema, "0");
+                return FormatIntegerMinimum(schema, "0");
             }
 
             if (HasType(schema, JsonObjectType.Number))
             {
                 return "1.0";
-            }
-
-            if (HasType(schema, JsonObjectType.String))
-            {
-                return "'value'";
             }
 
             if (HasType(schema, JsonObjectType.Array))
@@ -504,6 +507,11 @@ internal sealed class ConfigurationReferenceRenderer
             if (HasType(schema, JsonObjectType.Object))
             {
                 return "{}";
+            }
+
+            if (HasType(schema, JsonObjectType.String))
+            {
+                return "'value'";
             }
 
             return "'value'";
@@ -532,6 +540,19 @@ internal sealed class ConfigurationReferenceRenderer
             return minimum is null
                 ? fallback
                 : Convert.ToString(minimum, CultureInfo.InvariantCulture) ?? fallback;
+        }
+
+        private static string FormatIntegerMinimum(JsonSchema schema, string fallback)
+        {
+            var minimum = GetCandidateSchemas(schema)
+                .Select(candidate => candidate.Minimum)
+                .FirstOrDefault(value => value is not null);
+            if (minimum is null)
+            {
+                return fallback;
+            }
+
+            return decimal.Ceiling(minimum.Value).ToString("0", CultureInfo.InvariantCulture);
         }
 
         private static string FormatYamlScalar(object value)
