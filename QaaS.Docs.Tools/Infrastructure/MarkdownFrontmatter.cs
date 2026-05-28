@@ -278,7 +278,7 @@ internal static class MarkdownReferenceSkeleton
             "\n",
             before
                 .Append(string.Empty)
-                .Append($"> TL;DR: {summary}")
+                .Append($"> TL;DR — {summary}")
                 .Append(string.Empty)
                 .Concat(after)
         );

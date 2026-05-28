@@ -156,7 +156,7 @@ public sealed class MarkdownFrontmatterTests
             Assert.That(
                 content,
                 Does.Contain(
-                    "# DelayByAverage\n\n> TL;DR: Reference page for DelayByAverage.\n\n## What It Does {: #what-it-does}"
+                    "# DelayByAverage\n\n> TL;DR — Reference page for DelayByAverage.\n\n## What It Does {: #what-it-does}"
                 )
             );
             Assert.That(

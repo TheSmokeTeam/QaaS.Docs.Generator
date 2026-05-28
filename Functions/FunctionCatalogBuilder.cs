@@ -25,11 +25,16 @@ internal sealed record FunctionEntry(
     int LineNumber,
     string DeclaringType,
     bool IsExtensionMethod,
-    bool HasExplicitPlacement);
+    bool HasExplicitPlacement
+);
 
 internal sealed record DocsPlacement(string Group, string Subgroup);
 
-internal sealed record DocumentationComment(string Summary, string Remarks, DocsPlacement? Placement);
+internal sealed record DocumentationComment(
+    string Summary,
+    string Remarks,
+    DocsPlacement? Placement
+);
 
 internal static class FunctionCatalogBuilder
 {
@@ -38,7 +43,8 @@ internal static class FunctionCatalogBuilder
     public static async Task<FunctionCatalog> BuildAsync(
         string runnerRoot,
         string mockerRoot,
-        string frameworkRoot)
+        string frameworkRoot
+    )
     {
         var entries = new List<FunctionEntry>();
 
@@ -51,13 +57,18 @@ internal static class FunctionCatalogBuilder
                 var tree = CSharpSyntaxTree.ParseText(text, path: filePath);
                 var root = await tree.GetRootAsync();
 
-                foreach (var member in root.DescendantNodes()
-                             .OfType<BaseMethodDeclarationSyntax>()
-                             .Where(IsUserFacingMember)
-                             .OrderBy(documentedMember => documentedMember.SpanStart))
+                foreach (
+                    var member in root.DescendantNodes()
+                        .OfType<BaseMethodDeclarationSyntax>()
+                        .Where(IsUserFacingMember)
+                        .OrderBy(documentedMember => documentedMember.SpanStart)
+                )
                 {
                     var documentation = DocumentationCommentParser.Parse(member);
-                    var typeDeclaration = member.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+                    var typeDeclaration = member
+                        .Ancestors()
+                        .OfType<TypeDeclarationSyntax>()
+                        .FirstOrDefault();
                     if (typeDeclaration is null)
                     {
                         continue;
@@ -69,48 +80,58 @@ internal static class FunctionCatalogBuilder
                         continue;
                     }
 
-                    var placement = ResolvePlacement(documentation, typeDeclaration, isExtensionMethod);
+                    var placement = ResolvePlacement(
+                        documentation,
+                        typeDeclaration,
+                        isExtensionMethod
+                    );
                     if (placement is null)
                     {
                         continue;
                     }
 
                     var lineNumber = member.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                    entries.Add(new FunctionEntry(
-                        product,
-                        placement.Group,
-                        placement.Subgroup,
-                        GetMemberKind(member),
-                        SignatureFormatter.FormatDisplayName(typeDeclaration, member),
-                        SignatureFormatter.FormatShortName(typeDeclaration, member),
-                        SignatureFormatter.FormatOverloadName(typeDeclaration, member),
-                        SignatureFormatter.FormatComplete(member),
-                        string.IsNullOrWhiteSpace(documentation.Summary)
-                            ? "_No XML summary provided._"
-                            : documentation.Summary,
-                        documentation.Remarks,
-                        Path.GetRelativePath(productRoot, filePath).Replace('\\', '/'),
-                        lineNumber,
-                        typeDeclaration.Identifier.Text,
-                        isExtensionMethod,
-                        documentation.Placement is not null));
+                    entries.Add(
+                        new FunctionEntry(
+                            product,
+                            placement.Group,
+                            placement.Subgroup,
+                            GetMemberKind(member),
+                            SignatureFormatter.FormatDisplayName(typeDeclaration, member),
+                            SignatureFormatter.FormatShortName(typeDeclaration, member),
+                            SignatureFormatter.FormatOverloadName(typeDeclaration, member),
+                            SignatureFormatter.FormatComplete(member),
+                            string.IsNullOrWhiteSpace(documentation.Summary)
+                                ? "_No XML summary provided._"
+                                : documentation.Summary,
+                            documentation.Remarks,
+                            Path.GetRelativePath(productRoot, filePath).Replace('\\', '/'),
+                            lineNumber,
+                            typeDeclaration.Identifier.Text,
+                            isExtensionMethod,
+                            documentation.Placement is not null
+                        )
+                    );
                 }
             }
         }
 
-        return new FunctionCatalog(entries
-            .OrderBy(entry => entry.Product, StringComparer.Ordinal)
-            .ThenBy(entry => entry.Group, StringComparer.Ordinal)
-            .ThenBy(entry => entry.Subgroup, StringComparer.Ordinal)
-            .ThenBy(entry => entry.RelativePath, StringComparer.Ordinal)
-            .ThenBy(entry => entry.LineNumber)
-            .ThenBy(entry => entry.Signature, StringComparer.Ordinal)
-            .ToList());
+        return new FunctionCatalog(
+            entries
+                .OrderBy(entry => entry.Product, StringComparer.Ordinal)
+                .ThenBy(entry => entry.Group, StringComparer.Ordinal)
+                .ThenBy(entry => entry.Subgroup, StringComparer.Ordinal)
+                .ThenBy(entry => entry.RelativePath, StringComparer.Ordinal)
+                .ThenBy(entry => entry.LineNumber)
+                .ThenBy(entry => entry.Signature, StringComparer.Ordinal)
+                .ToList()
+        );
     }
 
     private static IEnumerable<string> EnumerateSourceFiles(string productRoot)
     {
-        return Directory.EnumerateFiles(productRoot, "*.cs", SearchOption.AllDirectories)
+        return Directory
+            .EnumerateFiles(productRoot, "*.cs", SearchOption.AllDirectories)
             .Where(path => !IsIgnoredPath(productRoot, path))
             .OrderBy(path => path, StringComparer.Ordinal);
     }
@@ -120,29 +141,33 @@ internal static class FunctionCatalogBuilder
         var relativePath = Path.GetRelativePath(productRoot, path);
         var segments = relativePath.Split(
             [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-            StringSplitOptions.RemoveEmptyEntries);
+            StringSplitOptions.RemoveEmptyEntries
+        );
 
-        return segments.Any(segment => string.Equals(segment, "bin", StringComparison.OrdinalIgnoreCase) ||
-                                       string.Equals(segment, "obj", StringComparison.OrdinalIgnoreCase) ||
-                                       string.Equals(segment, "TestResults", StringComparison.OrdinalIgnoreCase) ||
-                                       string.Equals(segment, "site", StringComparison.OrdinalIgnoreCase) ||
-                                       string.Equals(segment, "_isolated", StringComparison.OrdinalIgnoreCase) ||
-                                       string.Equals(segment, "_tmp", StringComparison.OrdinalIgnoreCase) ||
-                                       string.Equals(segment, ".git", StringComparison.OrdinalIgnoreCase));
+        return segments.Any(segment =>
+            string.Equals(segment, "bin", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(segment, "obj", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(segment, "TestResults", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(segment, "site", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(segment, "_isolated", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(segment, "_tmp", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(segment, ".git", StringComparison.OrdinalIgnoreCase)
+        );
     }
 
     private static bool IsUserFacingMember(BaseMethodDeclarationSyntax member)
     {
-        return member is MethodDeclarationSyntax or ConstructorDeclarationSyntax &&
-               member.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PublicKeyword)) &&
-               !IsInternalLeakingMember(member);
+        return member is MethodDeclarationSyntax or ConstructorDeclarationSyntax
+            && member.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PublicKeyword))
+            && !IsInternalLeakingMember(member);
     }
 
     private static bool ShouldDocumentMember(
         string product,
         BaseMethodDeclarationSyntax member,
         DocumentationComment documentation,
-        bool isExtensionMethod)
+        bool isExtensionMethod
+    )
     {
         if (IsExcludedSerializerMember(member) || IsObsoleteMember(member))
         {
@@ -159,8 +184,8 @@ internal static class FunctionCatalogBuilder
 
     private static bool HasRenderableDocumentation(DocumentationComment documentation)
     {
-        return !string.IsNullOrWhiteSpace(documentation.Summary) ||
-               !string.IsNullOrWhiteSpace(documentation.Remarks);
+        return !string.IsNullOrWhiteSpace(documentation.Summary)
+            || !string.IsNullOrWhiteSpace(documentation.Remarks);
     }
 
     private static bool IsExcludedSerializerMember(BaseMethodDeclarationSyntax member)
@@ -175,18 +200,20 @@ internal static class FunctionCatalogBuilder
 
     private static bool IsObsoleteMember(MemberDeclarationSyntax member)
     {
-        return member.AttributeLists
-            .SelectMany(attributeList => attributeList.Attributes)
+        return member
+            .AttributeLists.SelectMany(attributeList => attributeList.Attributes)
             .Select(attribute => attribute.Name.ToString())
             .Any(attributeName =>
-                attributeName.EndsWith("Obsolete", StringComparison.Ordinal) ||
-                attributeName.EndsWith("ObsoleteAttribute", StringComparison.Ordinal));
+                attributeName.EndsWith("Obsolete", StringComparison.Ordinal)
+                || attributeName.EndsWith("ObsoleteAttribute", StringComparison.Ordinal)
+            );
     }
 
     private static DocsPlacement? ResolvePlacement(
         DocumentationComment documentation,
         TypeDeclarationSyntax typeDeclaration,
-        bool isExtensionMethod)
+        bool isExtensionMethod
+    )
     {
         if (documentation.Placement is not null)
         {
@@ -194,7 +221,10 @@ internal static class FunctionCatalogBuilder
         }
 
         return isExtensionMethod
-            ? new DocsPlacement("Extension Methods", InferExtensionSubgroup(typeDeclaration.Identifier.Text))
+            ? new DocsPlacement(
+                "Extension Methods",
+                InferExtensionSubgroup(typeDeclaration.Identifier.Text)
+            )
             : null;
     }
 
@@ -210,9 +240,11 @@ internal static class FunctionCatalogBuilder
             trimmedTypeName = trimmedTypeName[..^"Extension".Length];
         }
 
-        if (trimmedTypeName.Length > 1 &&
-            trimmedTypeName[0] == 'I' &&
-            char.IsUpper(trimmedTypeName[1]))
+        if (
+            trimmedTypeName.Length > 1
+            && trimmedTypeName[0] == 'I'
+            && char.IsUpper(trimmedTypeName[1])
+        )
         {
             trimmedTypeName = trimmedTypeName[1..];
         }
@@ -225,20 +257,22 @@ internal static class FunctionCatalogBuilder
 
     private static bool IsInternalLeakingMember(BaseMethodDeclarationSyntax member)
     {
-        if (member is MethodDeclarationSyntax methodDeclaration &&
-            methodDeclaration.Identifier.Text.Contains("Internal", StringComparison.Ordinal))
+        if (
+            member is MethodDeclarationSyntax methodDeclaration
+            && methodDeclaration.Identifier.Text.Contains("Internal", StringComparison.Ordinal)
+        )
         {
             return true;
         }
 
         var typeNames = member switch
         {
-            MethodDeclarationSyntax methodWithTypes => methodWithTypes.ParameterList.Parameters
-                .Select(parameter => parameter.Type)
+            MethodDeclarationSyntax methodWithTypes => methodWithTypes
+                .ParameterList.Parameters.Select(parameter => parameter.Type)
                 .Prepend(methodWithTypes.ReturnType),
-            ConstructorDeclarationSyntax constructorWithTypes => constructorWithTypes.ParameterList.Parameters
-                .Select(parameter => parameter.Type),
-            _ => Enumerable.Empty<TypeSyntax>()
+            ConstructorDeclarationSyntax constructorWithTypes =>
+                constructorWithTypes.ParameterList.Parameters.Select(parameter => parameter.Type),
+            _ => Enumerable.Empty<TypeSyntax>(),
         };
 
         return typeNames
@@ -249,9 +283,11 @@ internal static class FunctionCatalogBuilder
 
     private static bool IsExtensionMethod(BaseMethodDeclarationSyntax member)
     {
-        return member is MethodDeclarationSyntax method &&
-               method.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.StaticKeyword)) &&
-               method.ParameterList.Parameters.FirstOrDefault()?.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.ThisKeyword)) == true;
+        return member is MethodDeclarationSyntax method
+            && method.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.StaticKeyword))
+            && method
+                .ParameterList.Parameters.FirstOrDefault()
+                ?.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.ThisKeyword)) == true;
     }
 
     private static string GetMemberKind(BaseMethodDeclarationSyntax member)
@@ -263,14 +299,17 @@ internal static class FunctionCatalogBuilder
         string product,
         string runnerRoot,
         string mockerRoot,
-        string frameworkRoot)
+        string frameworkRoot
+    )
     {
         return product switch
         {
             "Runner" => runnerRoot,
             "Mocker" => mockerRoot,
             "Framework" => frameworkRoot,
-            _ => throw new InvalidOperationException($"Unsupported function documentation product '{product}'.")
+            _ => throw new InvalidOperationException(
+                $"Unsupported function documentation product '{product}'."
+            ),
         };
     }
 }
@@ -286,49 +325,68 @@ internal sealed class FunctionReferenceRenderer
 
         foreach (var product in FunctionCatalogBuilder.SupportedProducts)
         {
-            var productEntries = catalog.Entries
-                .Where(entry => string.Equals(entry.Product, product, StringComparison.Ordinal))
+            var productEntries = catalog
+                .Entries.Where(entry =>
+                    string.Equals(entry.Product, product, StringComparison.Ordinal)
+                )
                 .ToList();
             var renderedEntries = productEntries
                 .Select(entry => new RenderedFunctionEntry(entry, ResolvePlacement(entry)))
                 .ToList();
-            var extensionEntries = productEntries
-                .Where(entry => entry.IsExtensionMethod)
-                .ToList();
+            var extensionEntries = productEntries.Where(entry => entry.IsExtensionMethod).ToList();
             var renderedExplicitEntries = renderedEntries
                 .Where(entry => entry.Entry.HasExplicitPlacement)
                 .ToList();
 
-            documents.Add(new GeneratedDocument(
-                GetOverviewOutputPath(product),
-                GeneratedDocumentHasher.WithHeader(
-                    RenderOverviewPage(product, renderedExplicitEntries, extensionEntries),
-                    [product, "functions", "overview"])));
-
-            foreach (var category in renderedExplicitEntries
-                         .GroupBy(entry => entry.Placement)
-                         .OrderBy(group => GroupOrder(product, group.Key.DisplayGroup))
-                         .ThenBy(group => group.Key.DisplayGroup, StringComparer.Ordinal)
-                         .ThenBy(group => group.Key.Subgroup, StringComparer.Ordinal))
-            {
-                documents.Add(new GeneratedDocument(
-                    GetCategoryOutputPath(product, category.Key),
+            documents.Add(
+                new GeneratedDocument(
+                    GetOverviewOutputPath(product),
                     GeneratedDocumentHasher.WithHeader(
-                        RenderCategoryPage(product, category.Key, category.Select(entry => entry.Entry).ToList()),
-                        [product, "functions", category.Key.DisplayGroup, category.Key.Subgroup])));
+                        RenderOverviewPage(product, renderedExplicitEntries, extensionEntries),
+                        [product, "functions", "overview"]
+                    )
+                )
+            );
+
+            foreach (
+                var category in renderedExplicitEntries
+                    .GroupBy(entry => entry.Placement)
+                    .OrderBy(group => GroupOrder(product, group.Key.DisplayGroup))
+                    .ThenBy(group => group.Key.DisplayGroup, StringComparer.Ordinal)
+                    .ThenBy(group => group.Key.Subgroup, StringComparer.Ordinal)
+            )
+            {
+                documents.Add(
+                    new GeneratedDocument(
+                        GetCategoryOutputPath(product, category.Key),
+                        GeneratedDocumentHasher.WithHeader(
+                            RenderCategoryPage(
+                                product,
+                                category.Key,
+                                category.Select(entry => entry.Entry).ToList()
+                            ),
+                            [product, "functions", category.Key.DisplayGroup, category.Key.Subgroup]
+                        )
+                    )
+                );
             }
 
-            documents.Add(new GeneratedDocument(
-                GetExtensionOutputPath(product),
-                GeneratedDocumentHasher.WithHeader(
-                    RenderExtensionPage(product, extensionEntries),
-                    [product, "functions", "extension-methods"])));
+            documents.Add(
+                new GeneratedDocument(
+                    GetExtensionOutputPath(product),
+                    GeneratedDocumentHasher.WithHeader(
+                        RenderExtensionPage(product, extensionEntries),
+                        [product, "functions", "extension-methods"]
+                    )
+                )
+            );
         }
 
         return documents;
     }
 
-    private static string GetOverviewOutputPath(string product) => $"{GetProductRoot(product)}/index.md";
+    private static string GetOverviewOutputPath(string product) =>
+        $"{GetProductRoot(product)}/index.md";
 
     private static string GetCategoryOutputPath(string product, FunctionPagePlacement placement)
     {
@@ -337,7 +395,8 @@ internal sealed class FunctionReferenceRenderer
             : $"{GetProductRoot(product)}/{Slugify(placement.PathGroup)}/{Slugify(placement.Subgroup)}.md";
     }
 
-    private static string GetExtensionOutputPath(string product) => $"{GetProductRoot(product)}/extension-methods.md";
+    private static string GetExtensionOutputPath(string product) =>
+        $"{GetProductRoot(product)}/extension-methods.md";
 
     private static string GetProductRoot(string product)
     {
@@ -346,46 +405,58 @@ internal sealed class FunctionReferenceRenderer
             "Runner" => "qaas/functions",
             "Mocker" => "mocker/functions",
             "Framework" => "framework/functions",
-            _ => $"{product.ToLowerInvariant()}/functions"
+            _ => $"{product.ToLowerInvariant()}/functions",
         };
     }
 
     private static string RenderOverviewPage(
         string product,
         IReadOnlyList<RenderedFunctionEntry> explicitlyDocumentedEntries,
-        IReadOnlyList<FunctionEntry> extensionEntries)
+        IReadOnlyList<FunctionEntry> extensionEntries
+    )
     {
         var builder = new StringBuilder();
         builder.AppendLine($"# {product} Functions");
         builder.AppendLine();
-        builder.AppendLine("This overview indexes the current public function surface documented through source-level `qaas-docs` annotations and extension-method XML docs.");
+        builder.AppendLine(
+            "This overview indexes the current public function surface documented through source-level `qaas-docs` annotations and extension-method XML docs."
+        );
         builder.AppendLine();
-        builder.AppendLine("Each category page keeps the table of contents focused on short function names and collapses the source file, signature, and XML doc comments behind each entry.");
+        builder.AppendLine(
+            "Each category page keeps the table of contents focused on short function names and collapses the source file, signature, and XML doc comments behind each entry."
+        );
         builder.AppendLine();
         builder.AppendLine("## Available Functions");
 
         if (explicitlyDocumentedEntries.Count == 0 && extensionEntries.Count == 0)
         {
             builder.AppendLine();
-            builder.AppendLine("No user-facing functions are currently documented for this product.");
+            builder.AppendLine(
+                "No user-facing functions are currently documented for this product."
+            );
             return builder.ToString().TrimEnd();
         }
 
-        foreach (var group in explicitlyDocumentedEntries
-                     .GroupBy(entry => entry.Placement.DisplayGroup, StringComparer.Ordinal)
-                     .OrderBy(group => GroupOrder(product, group.Key))
-                     .ThenBy(group => group.Key, StringComparer.Ordinal))
+        foreach (
+            var group in explicitlyDocumentedEntries
+                .GroupBy(entry => entry.Placement.DisplayGroup, StringComparer.Ordinal)
+                .OrderBy(group => GroupOrder(product, group.Key))
+                .ThenBy(group => group.Key, StringComparer.Ordinal)
+        )
         {
             builder.AppendLine();
             builder.AppendLine($"### {group.Key}");
             builder.AppendLine();
 
-            foreach (var subgroup in group
-                         .GroupBy(entry => entry.Placement, FunctionPagePlacementComparer.Instance)
-                         .OrderBy(subgroup => subgroup.Key.Subgroup, StringComparer.Ordinal))
+            foreach (
+                var subgroup in group
+                    .GroupBy(entry => entry.Placement, FunctionPagePlacementComparer.Instance)
+                    .OrderBy(subgroup => subgroup.Key.Subgroup, StringComparer.Ordinal)
+            )
             {
                 builder.AppendLine(
-                    $"- [{subgroup.Key.Subgroup}]({GetCategoryRelativeLink(subgroup.Key)})");
+                    $"- [{subgroup.Key.Subgroup}]({GetCategoryRelativeLink(subgroup.Key)})"
+                );
             }
         }
 
@@ -400,12 +471,25 @@ internal sealed class FunctionReferenceRenderer
     private static string RenderCategoryPage(
         string product,
         FunctionPagePlacement category,
-        IReadOnlyList<FunctionEntry> entries)
+        IReadOnlyList<FunctionEntry> entries
+    )
     {
         var builder = new StringBuilder();
         builder.AppendLine($"# {category.Subgroup}");
         builder.AppendLine();
-        builder.AppendLine("Each entry uses the short function name as the table-of-contents label. Expand an entry to inspect its source file, signature, and XML doc comments.");
+        builder.AppendLine(
+            $"> TL;DR — This page lists the public {product} functions in the `{category.Subgroup}` category."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## When to use");
+        builder.AppendLine();
+        builder.AppendLine(
+            "Use this page when you need source-backed signatures, declaring types, and XML doc comments for this function category."
+        );
+        builder.AppendLine();
+        builder.AppendLine(
+            "Each entry uses the short function name as the table-of-contents label. Expand an entry to inspect its source file, signature, and XML doc comments."
+        );
         var sections = entries
             .GroupBy(ResolveSection, StringComparer.Ordinal)
             .OrderBy(group => SectionOrder(group.Key))
@@ -416,7 +500,9 @@ internal sealed class FunctionReferenceRenderer
         if (renderSectionHeadings)
         {
             builder.AppendLine();
-            builder.AppendLine("The functions on this page are grouped by responsibility so related operations stay together.");
+            builder.AppendLine(
+                "The functions on this page are grouped by responsibility so related operations stay together."
+            );
         }
 
         foreach (var section in sections)
@@ -427,8 +513,17 @@ internal sealed class FunctionReferenceRenderer
                 builder.AppendLine($"## {section.Key}");
             }
 
-            RenderFunctionSections(builder, section.ToList(), headingLevel: renderSectionHeadings ? 3 : 2);
+            RenderFunctionSections(
+                builder,
+                section.ToList(),
+                headingLevel: renderSectionHeadings ? 3 : 2
+            );
         }
+
+        builder.AppendLine();
+        builder.AppendLine("## See also");
+        builder.AppendLine();
+        builder.AppendLine($"- [{product} Functions]({GetFunctionsIndexLink(category)})");
 
         return builder.ToString().TrimEnd();
     }
@@ -438,24 +533,41 @@ internal sealed class FunctionReferenceRenderer
         var builder = new StringBuilder();
         builder.AppendLine("# Extension Methods");
         builder.AppendLine();
-        builder.AppendLine($"This page collects public `{product}` extension methods that have XML documentation or explicit docs annotations.");
+        builder.AppendLine(
+            $"> TL;DR — This page lists the public {product} extension methods generated from XML documentation."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## When to use");
+        builder.AppendLine();
+        builder.AppendLine(
+            $"Use this page when you need extension-method signatures and doc comments for the {product} API surface."
+        );
+        builder.AppendLine();
+        builder.AppendLine(
+            $"This page collects public `{product}` extension methods that have XML documentation or explicit docs annotations."
+        );
 
         if (entries.Count == 0)
         {
             builder.AppendLine();
-            builder.AppendLine("No user-facing extension methods are currently documented for this product.");
+            builder.AppendLine(
+                "No user-facing extension methods are currently documented for this product."
+            );
             return builder.ToString().TrimEnd();
         }
 
         builder.AppendLine();
-        builder.AppendLine("Annotated extension methods continue to appear in their regular category pages; this page gives the extension surface a dedicated view.");
+        builder.AppendLine(
+            "Annotated extension methods continue to appear in their regular category pages; this page gives the extension surface a dedicated view."
+        );
 
         var groups = entries
             .GroupBy(entry => entry.Group, StringComparer.Ordinal)
             .OrderBy(group => group.Key, StringComparer.Ordinal)
             .ToList();
-        var collapseTopLevelGroup = groups.Count == 1 &&
-                                    string.Equals(groups[0].Key, "Extension Methods", StringComparison.Ordinal);
+        var collapseTopLevelGroup =
+            groups.Count == 1
+            && string.Equals(groups[0].Key, "Extension Methods", StringComparison.Ordinal);
 
         foreach (var group in groups)
         {
@@ -465,20 +577,37 @@ internal sealed class FunctionReferenceRenderer
                 builder.AppendLine($"## {group.Key}");
             }
 
-            foreach (var subgroup in group
-                         .GroupBy(entry => entry.Subgroup, StringComparer.Ordinal)
-                         .OrderBy(subgroup => subgroup.Key, StringComparer.Ordinal))
+            foreach (
+                var subgroup in group
+                    .GroupBy(entry => entry.Subgroup, StringComparer.Ordinal)
+                    .OrderBy(subgroup => subgroup.Key, StringComparer.Ordinal)
+            )
             {
                 builder.AppendLine();
-                builder.AppendLine($"{new string('#', collapseTopLevelGroup ? 2 : 3)} {subgroup.Key}");
-                RenderFunctionSections(builder, subgroup.ToList(), headingLevel: collapseTopLevelGroup ? 3 : 4);
+                builder.AppendLine(
+                    $"{new string('#', collapseTopLevelGroup ? 2 : 3)} {subgroup.Key}"
+                );
+                RenderFunctionSections(
+                    builder,
+                    subgroup.ToList(),
+                    headingLevel: collapseTopLevelGroup ? 3 : 4
+                );
             }
         }
+
+        builder.AppendLine();
+        builder.AppendLine("## See also");
+        builder.AppendLine();
+        builder.AppendLine($"- [{product} Functions](index.md)");
 
         return builder.ToString().TrimEnd();
     }
 
-    private static void RenderFunctionSections(StringBuilder builder, IReadOnlyList<FunctionEntry> entries, int headingLevel)
+    private static void RenderFunctionSections(
+        StringBuilder builder,
+        IReadOnlyList<FunctionEntry> entries,
+        int headingLevel
+    )
     {
         var headingLabels = BuildHeadingLabels(entries);
         var headingPrefix = new string('#', headingLevel);
@@ -515,11 +644,11 @@ internal sealed class FunctionReferenceRenderer
         }
     }
 
-    private static IReadOnlyDictionary<FunctionEntry, string> BuildHeadingLabels(IReadOnlyList<FunctionEntry> entries)
+    private static IReadOnlyDictionary<FunctionEntry, string> BuildHeadingLabels(
+        IReadOnlyList<FunctionEntry> entries
+    )
     {
-        return entries.ToDictionary(
-            entry => entry,
-            entry => entry.ShortName);
+        return entries.ToDictionary(entry => entry, entry => entry.ShortName);
     }
 
     private static string GetDeclaringTypeLabel(FunctionEntry entry)
@@ -543,19 +672,23 @@ internal sealed class FunctionReferenceRenderer
             return "Execution order";
         }
 
-        if (shortName.StartsWith("ReportOnly", StringComparison.Ordinal) ||
-            shortName.StartsWith("WeatherTo", StringComparison.Ordinal) ||
-            shortName.Contains("Trace", StringComparison.Ordinal) ||
-            shortName.Contains("Attachment", StringComparison.Ordinal) ||
-            shortName.Contains("Log", StringComparison.Ordinal) ||
-            shortName.Contains("ConfigurationTemplate", StringComparison.Ordinal) ||
-            shortName.Contains("SessionData", StringComparison.Ordinal))
+        if (
+            shortName.StartsWith("ReportOnly", StringComparison.Ordinal)
+            || shortName.StartsWith("WeatherTo", StringComparison.Ordinal)
+            || shortName.Contains("Trace", StringComparison.Ordinal)
+            || shortName.Contains("Attachment", StringComparison.Ordinal)
+            || shortName.Contains("Log", StringComparison.Ordinal)
+            || shortName.Contains("ConfigurationTemplate", StringComparison.Ordinal)
+            || shortName.Contains("SessionData", StringComparison.Ordinal)
+        )
         {
             return "Reporting and artifacts";
         }
 
-        if (shortName.Contains("Severity", StringComparison.Ordinal) ||
-            shortName.Contains("Category", StringComparison.Ordinal))
+        if (
+            shortName.Contains("Severity", StringComparison.Ordinal)
+            || shortName.Contains("Category", StringComparison.Ordinal)
+        )
         {
             return "Classification";
         }
@@ -573,18 +706,22 @@ internal sealed class FunctionReferenceRenderer
             return "Inspection";
         }
 
-        if (shortName.StartsWith("Add", StringComparison.Ordinal) ||
-            shortName.StartsWith("Create", StringComparison.Ordinal) ||
-            shortName.StartsWith("Update", StringComparison.Ordinal) ||
-            shortName.StartsWith("Delete", StringComparison.Ordinal) ||
-            shortName.StartsWith("Remove", StringComparison.Ordinal))
+        if (
+            shortName.StartsWith("Add", StringComparison.Ordinal)
+            || shortName.StartsWith("Create", StringComparison.Ordinal)
+            || shortName.StartsWith("Update", StringComparison.Ordinal)
+            || shortName.StartsWith("Delete", StringComparison.Ordinal)
+            || shortName.StartsWith("Remove", StringComparison.Ordinal)
+        )
         {
             return "Collection helpers";
         }
 
-        if (shortName.StartsWith("With", StringComparison.Ordinal) ||
-            shortName.StartsWith("Use", StringComparison.Ordinal) ||
-            shortName.StartsWith("Set", StringComparison.Ordinal))
+        if (
+            shortName.StartsWith("With", StringComparison.Ordinal)
+            || shortName.StartsWith("Use", StringComparison.Ordinal)
+            || shortName.StartsWith("Set", StringComparison.Ordinal)
+        )
         {
             return "Configuration";
         }
@@ -594,11 +731,18 @@ internal sealed class FunctionReferenceRenderer
 
     private static int SectionOrder(string section)
     {
-        var index = Array.FindIndex(SectionOrderList, candidate => string.Equals(candidate, section, StringComparison.Ordinal));
+        var index = Array.FindIndex(
+            SectionOrderList,
+            candidate => string.Equals(candidate, section, StringComparison.Ordinal)
+        );
         return index >= 0 ? index : SectionOrderList.Length;
     }
 
-    private static void AppendIndentedMarkdownBlock(StringBuilder builder, string text, int indentation)
+    private static void AppendIndentedMarkdownBlock(
+        StringBuilder builder,
+        string text,
+        int indentation
+    )
     {
         var indent = new string(' ', indentation);
         foreach (var line in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
@@ -607,7 +751,11 @@ internal sealed class FunctionReferenceRenderer
         }
     }
 
-    private static void AppendIndentedLine(StringBuilder builder, string text = "", int indentation = 4)
+    private static void AppendIndentedLine(
+        StringBuilder builder,
+        string text = "",
+        int indentation = 4
+    )
     {
         var indent = new string(' ', indentation);
         builder.AppendLine(text.Length == 0 ? indent : indent + text);
@@ -625,16 +773,24 @@ internal sealed class FunctionReferenceRenderer
             : GetCategoryRelativeLink(placement.PathGroup, placement.Subgroup);
     }
 
+    private static string GetFunctionsIndexLink(FunctionPagePlacement placement)
+    {
+        return placement.PathGroup is null ? "index.md" : "../index.md";
+    }
+
     private static int GroupOrder(string product, string group)
     {
         var orderedGroups = product switch
         {
             "Runner" or "Mocker" => RunnerAndMockerGroupOrder,
             "Framework" => FrameworkGroupOrder,
-            _ => Array.Empty<string>()
+            _ => Array.Empty<string>(),
         };
 
-        var index = Array.FindIndex(orderedGroups, candidate => string.Equals(candidate, group, StringComparison.Ordinal));
+        var index = Array.FindIndex(
+            orderedGroups,
+            candidate => string.Equals(candidate, group, StringComparison.Ordinal)
+        );
         return index >= 0 ? index : orderedGroups.Length;
     }
 
@@ -645,7 +801,7 @@ internal sealed class FunctionReferenceRenderer
             "Runner" => ResolveRunnerPlacement(entry),
             "Mocker" => ResolveMockerPlacement(entry),
             "Framework" => ResolveFrameworkPlacement(entry),
-            _ => new FunctionPagePlacement(entry.Group, entry.Group, entry.Subgroup)
+            _ => new FunctionPagePlacement(entry.Group, entry.Group, entry.Subgroup),
         };
     }
 
@@ -653,12 +809,17 @@ internal sealed class FunctionReferenceRenderer
     {
         return entry.Group switch
         {
-            "Configuration as Code" => new FunctionPagePlacement("Builders", "Builders", entry.Subgroup),
-            "Getting Started" when string.Equals(entry.Subgroup, "Bootstrap", StringComparison.Ordinal)
-                => new FunctionPagePlacement("Commands", "Commands", entry.Subgroup),
-            "Runtime" when string.Equals(entry.Subgroup, "Runner", StringComparison.Ordinal)
-                => new FunctionPagePlacement("Commands", "Commands", entry.Subgroup),
-            _ => new FunctionPagePlacement(entry.Group, entry.Group, entry.Subgroup)
+            "Configuration as Code" => new FunctionPagePlacement(
+                "Builders",
+                "Builders",
+                entry.Subgroup
+            ),
+            "Getting Started"
+                when string.Equals(entry.Subgroup, "Bootstrap", StringComparison.Ordinal) =>
+                new FunctionPagePlacement("Commands", "Commands", entry.Subgroup),
+            "Runtime" when string.Equals(entry.Subgroup, "Runner", StringComparison.Ordinal) =>
+                new FunctionPagePlacement("Commands", "Commands", entry.Subgroup),
+            _ => new FunctionPagePlacement(entry.Group, entry.Group, entry.Subgroup),
         };
     }
 
@@ -666,11 +827,16 @@ internal sealed class FunctionReferenceRenderer
     {
         return entry.Group switch
         {
-            "Configuration as Code" => new FunctionPagePlacement("Builders", "Builders", entry.Subgroup),
-            "Getting Started" when string.Equals(entry.Subgroup, "Bootstrap", StringComparison.Ordinal)
-                => new FunctionPagePlacement("Commands", "Commands", entry.Subgroup),
+            "Configuration as Code" => new FunctionPagePlacement(
+                "Builders",
+                "Builders",
+                entry.Subgroup
+            ),
+            "Getting Started"
+                when string.Equals(entry.Subgroup, "Bootstrap", StringComparison.Ordinal) =>
+                new FunctionPagePlacement("Commands", "Commands", entry.Subgroup),
             "Runtime" => new FunctionPagePlacement("Commands", "Commands", entry.Subgroup),
-            _ => new FunctionPagePlacement(entry.Group, entry.Group, entry.Subgroup)
+            _ => new FunctionPagePlacement(entry.Group, entry.Group, entry.Subgroup),
         };
     }
 
@@ -678,8 +844,12 @@ internal sealed class FunctionReferenceRenderer
     {
         return entry.Subgroup switch
         {
-            "Data Sources" or "Policies" => new FunctionPagePlacement("Builders", "Builders", entry.Subgroup),
-            _ => new FunctionPagePlacement("Functions", null, entry.Subgroup)
+            "Data Sources" or "Policies" => new FunctionPagePlacement(
+                "Builders",
+                "Builders",
+                entry.Subgroup
+            ),
+            _ => new FunctionPagePlacement("Functions", null, entry.Subgroup),
         };
     }
 
@@ -694,7 +864,10 @@ internal sealed class FunctionReferenceRenderer
         return count == 1 ? $"1 {singularNoun}" : $"{count} {singularNoun}s";
     }
 
-    private sealed record RenderedFunctionEntry(FunctionEntry Entry, FunctionPagePlacement Placement);
+    private sealed record RenderedFunctionEntry(
+        FunctionEntry Entry,
+        FunctionPagePlacement Placement
+    );
 
     private static readonly (string Needle, string Section)[] ResourceSections =
     [
@@ -718,7 +891,7 @@ internal sealed class FunctionReferenceRenderer
         ("Context", "Contexts"),
         ("Placeholder", "Placeholders"),
         ("Yaml", "YAML configuration"),
-        ("Enumerable", "Enumerables")
+        ("Enumerable", "Enumerables"),
     ];
 
     private static readonly string[] SectionOrderList =
@@ -751,10 +924,14 @@ internal sealed class FunctionReferenceRenderer
         "Reporting and artifacts",
         "Inspection",
         "Collection helpers",
-        "General"
+        "General",
     ];
 
-    private sealed record FunctionPagePlacement(string DisplayGroup, string? PathGroup, string Subgroup) : IComparable<FunctionPagePlacement>
+    private sealed record FunctionPagePlacement(
+        string DisplayGroup,
+        string? PathGroup,
+        string Subgroup
+    ) : IComparable<FunctionPagePlacement>
     {
         public int CompareTo(FunctionPagePlacement? other)
         {
@@ -763,7 +940,10 @@ internal sealed class FunctionReferenceRenderer
                 return 1;
             }
 
-            var pathGroupComparison = StringComparer.Ordinal.Compare(PathGroup ?? string.Empty, other.PathGroup ?? string.Empty);
+            var pathGroupComparison = StringComparer.Ordinal.Compare(
+                PathGroup ?? string.Empty,
+                other.PathGroup ?? string.Empty
+            );
             if (pathGroupComparison != 0)
             {
                 return pathGroupComparison;
@@ -789,9 +969,9 @@ internal sealed class FunctionReferenceRenderer
                 return false;
             }
 
-            return string.Equals(x.DisplayGroup, y.DisplayGroup, StringComparison.Ordinal) &&
-                   string.Equals(x.PathGroup, y.PathGroup, StringComparison.Ordinal) &&
-                   string.Equals(x.Subgroup, y.Subgroup, StringComparison.Ordinal);
+            return string.Equals(x.DisplayGroup, y.DisplayGroup, StringComparison.Ordinal)
+                && string.Equals(x.PathGroup, y.PathGroup, StringComparison.Ordinal)
+                && string.Equals(x.Subgroup, y.Subgroup, StringComparison.Ordinal);
         }
 
         public int GetHashCode(FunctionPagePlacement obj)
@@ -799,7 +979,8 @@ internal sealed class FunctionReferenceRenderer
             return HashCode.Combine(
                 StringComparer.Ordinal.GetHashCode(obj.DisplayGroup),
                 obj.PathGroup is null ? 0 : StringComparer.Ordinal.GetHashCode(obj.PathGroup),
-                StringComparer.Ordinal.GetHashCode(obj.Subgroup));
+                StringComparer.Ordinal.GetHashCode(obj.Subgroup)
+            );
         }
     }
 }
@@ -817,19 +998,22 @@ internal static class DocumentationCommentParser
         var placementElement = xml.Descendants("qaas-docs").FirstOrDefault();
         var group = NormalizeAttribute(placementElement?.Attribute("group")?.Value);
         var subgroup = NormalizeAttribute(placementElement?.Attribute("subgroup")?.Value);
-        var placement = !string.IsNullOrWhiteSpace(group) && !string.IsNullOrWhiteSpace(subgroup)
-            ? new DocsPlacement(group, subgroup)
-            : null;
+        var placement =
+            !string.IsNullOrWhiteSpace(group) && !string.IsNullOrWhiteSpace(subgroup)
+                ? new DocsPlacement(group, subgroup)
+                : null;
 
         return new DocumentationComment(
             RenderBlock(xml.Descendants("summary").FirstOrDefault()),
             RenderBlock(xml.Descendants("remarks").FirstOrDefault()),
-            placement);
+            placement
+        );
     }
 
     public static XDocument? ParseXml(MemberDeclarationSyntax member)
     {
-        var trivia = member.GetLeadingTrivia()
+        var trivia = member
+            .GetLeadingTrivia()
             .Select(trivia => trivia.GetStructure())
             .OfType<DocumentationCommentTriviaSyntax>()
             .FirstOrDefault();
@@ -860,14 +1044,13 @@ internal static class DocumentationCommentParser
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .ToList();
 
-        return string.Join(
-            Environment.NewLine + Environment.NewLine,
-            paragraphs);
+        return string.Join(Environment.NewLine + Environment.NewLine, paragraphs);
     }
 
     private static IEnumerable<string> ExtractParagraphs(XElement element)
     {
-        var paragraphElements = element.Elements()
+        var paragraphElements = element
+            .Elements()
             .Where(child => child.Name.LocalName == "para")
             .ToList();
         if (paragraphElements.Count == 0)
@@ -876,7 +1059,8 @@ internal static class DocumentationCommentParser
             yield break;
         }
 
-        var leadingNodes = element.Nodes()
+        var leadingNodes = element
+            .Nodes()
             .Where(node => node is not XElement child || child.Name.LocalName != "para");
         var leadingParagraph = FlattenNodes(leadingNodes);
         if (!string.IsNullOrWhiteSpace(leadingParagraph))
@@ -896,9 +1080,10 @@ internal static class DocumentationCommentParser
 
     private static string FlattenNodes(IEnumerable<XNode> nodes)
     {
-        var text = string.Join(" ", nodes
-            .SelectMany(FlattenNode)
-            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        var text = string.Join(
+            " ",
+            nodes.SelectMany(FlattenNode).Where(value => !string.IsNullOrWhiteSpace(value))
+        );
 
         return Regex.Replace(text, "\\s+", " ").Trim();
     }
@@ -960,7 +1145,8 @@ internal static class DocumentationCommentParser
             Environment.NewLine,
             rawDocumentation
                 .Split(["\r\n", "\n"], StringSplitOptions.None)
-                .Select(line => Regex.Replace(line, "^\\s*///\\s?", string.Empty)));
+                .Select(line => Regex.Replace(line, "^\\s*///\\s?", string.Empty))
+        );
     }
 
     private static string NormalizeAttribute(string? value)
@@ -972,9 +1158,7 @@ internal static class DocumentationCommentParser
 
     private static string SimplifyReference(string reference)
     {
-        var trimmed = reference.Length > 2 && reference[1] == ':'
-            ? reference[2..]
-            : reference;
+        var trimmed = reference.Length > 2 && reference[1] == ':' ? reference[2..] : reference;
         var lastSegment = trimmed.Split('.').LastOrDefault();
         return string.IsNullOrWhiteSpace(lastSegment) ? trimmed : lastSegment;
     }
@@ -982,37 +1166,60 @@ internal static class DocumentationCommentParser
 
 internal static class SignatureFormatter
 {
-    public static string FormatDisplayName(TypeDeclarationSyntax typeDeclaration, BaseMethodDeclarationSyntax member)
+    public static string FormatDisplayName(
+        TypeDeclarationSyntax typeDeclaration,
+        BaseMethodDeclarationSyntax member
+    )
     {
-        var parameters = string.Join(", ", member.ParameterList.Parameters.Select(parameter => parameter.ToString()));
+        var parameters = string.Join(
+            ", ",
+            member.ParameterList.Parameters.Select(parameter => parameter.ToString())
+        );
 
         return member switch
         {
-            MethodDeclarationSyntax method => $"{typeDeclaration.Identifier.Text}.{method.Identifier.Text}{method.TypeParameterList}({parameters})",
+            MethodDeclarationSyntax method =>
+                $"{typeDeclaration.Identifier.Text}.{method.Identifier.Text}{method.TypeParameterList}({parameters})",
             ConstructorDeclarationSyntax => $"{typeDeclaration.Identifier.Text}({parameters})",
-            _ => throw new InvalidOperationException($"Unsupported member type '{member.GetType().Name}' for function display name rendering.")
+            _ => throw new InvalidOperationException(
+                $"Unsupported member type '{member.GetType().Name}' for function display name rendering."
+            ),
         };
     }
 
-    public static string FormatShortName(TypeDeclarationSyntax typeDeclaration, BaseMethodDeclarationSyntax member)
+    public static string FormatShortName(
+        TypeDeclarationSyntax typeDeclaration,
+        BaseMethodDeclarationSyntax member
+    )
     {
         return member switch
         {
             MethodDeclarationSyntax method => $"{method.Identifier.Text}{method.TypeParameterList}",
             ConstructorDeclarationSyntax => typeDeclaration.Identifier.Text,
-            _ => throw new InvalidOperationException($"Unsupported member type '{member.GetType().Name}' for function short name rendering.")
+            _ => throw new InvalidOperationException(
+                $"Unsupported member type '{member.GetType().Name}' for function short name rendering."
+            ),
         };
     }
 
-    public static string FormatOverloadName(TypeDeclarationSyntax typeDeclaration, BaseMethodDeclarationSyntax member)
+    public static string FormatOverloadName(
+        TypeDeclarationSyntax typeDeclaration,
+        BaseMethodDeclarationSyntax member
+    )
     {
-        var parameters = string.Join(", ", member.ParameterList.Parameters.Select(FormatParameterType));
+        var parameters = string.Join(
+            ", ",
+            member.ParameterList.Parameters.Select(FormatParameterType)
+        );
 
         return member switch
         {
-            MethodDeclarationSyntax method => $"{method.Identifier.Text}{method.TypeParameterList}({parameters})",
+            MethodDeclarationSyntax method =>
+                $"{method.Identifier.Text}{method.TypeParameterList}({parameters})",
             ConstructorDeclarationSyntax => $"{typeDeclaration.Identifier.Text}({parameters})",
-            _ => throw new InvalidOperationException($"Unsupported member type '{member.GetType().Name}' for overload heading rendering.")
+            _ => throw new InvalidOperationException(
+                $"Unsupported member type '{member.GetType().Name}' for overload heading rendering."
+            ),
         };
     }
 
@@ -1021,16 +1228,14 @@ internal static class SignatureFormatter
         return member switch
         {
             MethodDeclarationSyntax method => NormalizeSignature(
-                method
-                    .WithBody(null)
-                    .WithExpressionBody(null)
-                    .WithSemicolonToken(default)),
+                method.WithBody(null).WithExpressionBody(null).WithSemicolonToken(default)
+            ),
             ConstructorDeclarationSyntax constructor => NormalizeSignature(
-                constructor
-                    .WithBody(null)
-                    .WithExpressionBody(null)
-                    .WithSemicolonToken(default)),
-            _ => throw new InvalidOperationException($"Unsupported member type '{member.GetType().Name}' for function signature rendering.")
+                constructor.WithBody(null).WithExpressionBody(null).WithSemicolonToken(default)
+            ),
+            _ => throw new InvalidOperationException(
+                $"Unsupported member type '{member.GetType().Name}' for function signature rendering."
+            ),
         };
     }
 
@@ -1043,14 +1248,16 @@ internal static class SignatureFormatter
 
     private static string NormalizeSignature(MemberDeclarationSyntax member)
     {
-        return Regex.Replace(
+        return Regex
+            .Replace(
                 member
                     .WithoutLeadingTrivia()
                     .WithoutTrailingTrivia()
                     .NormalizeWhitespace()
                     .ToFullString(),
                 "\\s+",
-                " ")
+                " "
+            )
             .Trim();
     }
 }

@@ -234,7 +234,7 @@ internal static class MarkdownReferenceSkeleton
             GeneratedDocumentLineEndings.Canonical,
             before
                 .Append(string.Empty)
-                .Append($"> TL;DR: {summary}")
+                .Append($"> TL;DR — {summary}")
                 .Append(string.Empty)
                 .Concat(after)
         );

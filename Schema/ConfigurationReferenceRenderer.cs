@@ -120,7 +120,8 @@ internal sealed class ConfigurationReferenceRenderer
                         RenderTableView(
                             $"{typeReference.Title} Configurations Table View",
                             $"Sessions[].{typeReference.SchemaPropertyName}",
-                            property
+                            property,
+                            $"{typeReference.DocsSlug}-yamlView.md"
                         ),
                         [
                             familyDocs.FamilyId,
@@ -138,7 +139,9 @@ internal sealed class ConfigurationReferenceRenderer
                         RenderYamlView(
                             $"{typeReference.Title} Configurations Yaml View",
                             typeReference.SchemaPropertyName,
-                            property
+                            property,
+                            $"{typeReference.DocsSlug}-tableView.md",
+                            includeOverviewLink: false
                         ),
                         [
                             familyDocs.FamilyId,
@@ -166,7 +169,8 @@ internal sealed class ConfigurationReferenceRenderer
     private static string RenderTableView(
         string title,
         string rootPath,
-        JsonSchemaProperty property
+        JsonSchemaProperty property,
+        string yamlLink = "yamlView.md"
     )
     {
         var rows = new List<TableRow>();
@@ -175,14 +179,45 @@ internal sealed class ConfigurationReferenceRenderer
         var builder = new StringBuilder();
         builder.AppendLine($"# {title}");
         builder.AppendLine();
+        builder.AppendLine(
+            "> TL;DR — Use this generated field table to check property paths, types, required status, defaults, and descriptions."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## When to use");
+        builder.AppendLine();
+        builder.AppendLine(
+            "Use this page when you need the exact field path or value type for a configuration section before editing YAML."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## YAML configuration");
+        builder.AppendLine();
+        builder.AppendLine(
+            "The table below mirrors the schema used by the YAML scaffold page. Nested rows use dotted paths and `[]` for list items."
+        );
+        builder.AppendLine();
         builder.AppendLine("| Property Path | Type | Required | Default | Description |");
         builder.AppendLine("| ------------- | ---- | -------- | ------- | ----------- |");
         foreach (var row in rows)
         {
             builder.AppendLine(
-                $"| `{row.Path}` | `{row.Type}` | {row.Required} | {Escape(row.DefaultValue)} | {Escape(row.Description)} |"
+                $"| `{row.Path}` | `{row.Type}` | {row.Required} | {FormatDefault(row.DefaultValue)} | {Escape(row.Description)} |"
             );
         }
+
+        builder.AppendLine();
+        builder.AppendLine("## Edge cases");
+        builder.AppendLine();
+        builder.AppendLine(
+            "- Empty default cells mean the schema does not define a default value for that field."
+        );
+        builder.AppendLine(
+            "- Required status applies to the immediate parent object shown by the property path."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## See also");
+        builder.AppendLine();
+        builder.AppendLine($"- [YAML scaffold]({yamlLink})");
+        builder.AppendLine("- [Overview](../overview.md)");
 
         return builder.ToString().TrimEnd();
     }
@@ -199,11 +234,31 @@ internal sealed class ConfigurationReferenceRenderer
     private static string RenderYamlView(
         string title,
         string rootPropertyName,
-        JsonSchemaProperty property
+        JsonSchemaProperty property,
+        string tableLink = "tableView.md",
+        bool includeOverviewLink = true
     )
     {
         var builder = new StringBuilder();
         builder.AppendLine($"# {title}");
+        builder.AppendLine();
+        builder.AppendLine(
+            "> TL;DR — Copy this schema-derived YAML scaffold, replace placeholder values, and use the table view for field descriptions."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## When to use");
+        builder.AppendLine();
+        builder.AppendLine(
+            "Use this page when you need the generated YAML shape for this configuration section and want every emitted field in one block."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## YAML configuration");
+        builder.AppendLine();
+        builder.AppendLine(
+            "The scaffold follows the generated schema order. String placeholders are quoted, optional lists render as `[]`, and numeric placeholders use schema minimums when they exist."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## Minimal example");
         builder.AppendLine();
         builder.AppendLine("```yaml");
         foreach (var line in SchemaTraversal.RenderYaml(rootPropertyName, property.ActualSchema))
@@ -211,12 +266,41 @@ internal sealed class ConfigurationReferenceRenderer
             builder.AppendLine(line);
         }
         builder.AppendLine("```");
+        builder.AppendLine();
+        builder.AppendLine("## Realistic example");
+        builder.AppendLine();
+        builder.AppendLine(
+            "Start with the minimal scaffold, replace placeholder values with project values, and keep only the optional branches that this configuration needs."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## Edge cases");
+        builder.AppendLine();
+        builder.AppendLine(
+            "- Optional arrays are emitted as `[]`; add entries only when the section needs that collection."
+        );
+        builder.AppendLine(
+            "- Placeholder-style strings are quoted so YAML parsers keep them as scalar values."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## See also");
+        builder.AppendLine();
+        builder.AppendLine($"- [Configuration table]({tableLink})");
+        if (includeOverviewLink)
+        {
+            builder.AppendLine("- [Overview](../overview.md)");
+        }
+
         return builder.ToString().TrimEnd();
     }
 
     private static string Escape(string value)
     {
         return MarkdownTableCellFormatter.Format(value);
+    }
+
+    private static string FormatDefault(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? string.Empty : $"`{Escape(value)}`";
     }
 
     private static bool TryGetSessionItemSchema(JsonSchema schema, out JsonSchema itemSchema)
@@ -347,23 +431,15 @@ internal sealed class ConfigurationReferenceRenderer
                         return;
                     }
 
-                    RenderYamlCore(
-                        lines,
-                        indentLevel + 1,
-                        children[0].Key,
-                        children[0].Value.ActualSchema,
-                        "- "
-                    );
-
-                    foreach (var child in children.Skip(1))
+                    lines.Add($"{indent}  -");
+                    foreach (var child in children)
                     {
                         RenderYamlCore(lines, indentLevel + 2, child.Key, child.Value.ActualSchema);
                     }
                 }
                 else
                 {
-                    lines.Add(propertyLine);
-                    lines.Add($"{indent}  - {RenderSampleScalar(itemSchema.ActualSchema)}");
+                    lines.Add($"{indent}{linePrefix}{propertyName}: []");
                 }
 
                 return;
@@ -395,11 +471,6 @@ internal sealed class ConfigurationReferenceRenderer
                 }
             }
 
-            if (HasPlaceholderPattern(schema) && HasType(schema, JsonObjectType.String))
-            {
-                return "\"${value}\"";
-            }
-
             if (schema.Default is not null)
             {
                 return FormatYamlScalar(schema.Default);
@@ -407,12 +478,12 @@ internal sealed class ConfigurationReferenceRenderer
 
             if (HasType(schema, JsonObjectType.Boolean))
             {
-                return "true";
+                return "True";
             }
 
             if (HasType(schema, JsonObjectType.Integer))
             {
-                return "1";
+                return FormatMinimum(schema, "0");
             }
 
             if (HasType(schema, JsonObjectType.Number))
@@ -422,7 +493,7 @@ internal sealed class ConfigurationReferenceRenderer
 
             if (HasType(schema, JsonObjectType.String))
             {
-                return "\"value\"";
+                return "'value'";
             }
 
             if (HasType(schema, JsonObjectType.Array))
@@ -435,7 +506,7 @@ internal sealed class ConfigurationReferenceRenderer
                 return "{}";
             }
 
-            return "\"value\"";
+            return "'value'";
         }
 
         private static bool HasType(JsonSchema schema, JsonObjectType type)
@@ -453,19 +524,21 @@ internal sealed class ConfigurationReferenceRenderer
             }
         }
 
-        private static bool HasPlaceholderPattern(JsonSchema schema)
+        private static string FormatMinimum(JsonSchema schema, string fallback)
         {
-            return GetCandidateSchemas(schema)
-                .Any(candidate =>
-                    string.Equals(candidate.Pattern, @"\$\{.*\}", StringComparison.Ordinal)
-                );
+            var minimum = GetCandidateSchemas(schema)
+                .Select(candidate => candidate.Minimum)
+                .FirstOrDefault(value => value is not null);
+            return minimum is null
+                ? fallback
+                : Convert.ToString(minimum, CultureInfo.InvariantCulture) ?? fallback;
         }
 
         private static string FormatYamlScalar(object value)
         {
             return value switch
             {
-                bool boolean => boolean ? "true" : "false",
+                bool boolean => boolean ? "True" : "False",
                 byte or sbyte or short or ushort or int or uint or long or ulong =>
                     Convert.ToString(value, CultureInfo.InvariantCulture) ?? "1",
                 float or double or decimal => Convert.ToString(value, CultureInfo.InvariantCulture)
@@ -476,10 +549,8 @@ internal sealed class ConfigurationReferenceRenderer
 
         private static string QuoteYamlString(string value)
         {
-            var escaped = value
-                .Replace("\\", "\\\\", StringComparison.Ordinal)
-                .Replace("\"", "\\\"", StringComparison.Ordinal);
-            return $"\"{escaped}\"";
+            var escaped = value.Replace("'", "''", StringComparison.Ordinal);
+            return $"'{escaped}'";
         }
 
         private static IEnumerable<KeyValuePair<string, JsonSchemaProperty>> OrderProperties(

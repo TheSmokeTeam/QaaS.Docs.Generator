@@ -741,14 +741,45 @@ internal sealed class HookReferenceRenderer
         var builder = new StringBuilder();
         builder.AppendLine($"# {title} Configurations Table View");
         builder.AppendLine();
+        builder.AppendLine(
+            "> TL;DR — Use this generated field table to check property paths, types, required status, defaults, and descriptions."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## When to use");
+        builder.AppendLine();
+        builder.AppendLine(
+            "Use this page when you need the exact field path or value type for a hook configuration before editing YAML."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## YAML configuration");
+        builder.AppendLine();
+        builder.AppendLine(
+            "The table below mirrors the schema used by the YAML scaffold page. Nested rows use dotted paths and `[]` for list items."
+        );
+        builder.AppendLine();
         builder.AppendLine("| Property Path | Type | Required | Default | Description |");
         builder.AppendLine("| ------------- | ---- | -------- | ------- | ----------- |");
         foreach (var row in rows)
         {
             builder.AppendLine(
-                $"| `{row.Path}` | `{row.Type}` | {row.Required} | {Escape(row.DefaultValue)} | {Escape(row.Description)} |"
+                $"| `{row.Path}` | `{row.Type}` | {row.Required} | {FormatDefault(row.DefaultValue)} | {Escape(row.Description)} |"
             );
         }
+
+        builder.AppendLine();
+        builder.AppendLine("## Edge cases");
+        builder.AppendLine();
+        builder.AppendLine(
+            "- Empty default cells mean the schema does not define a default value for that field."
+        );
+        builder.AppendLine(
+            "- Required status applies to the immediate parent object shown by the property path."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## See also");
+        builder.AppendLine();
+        builder.AppendLine("- [YAML scaffold](yamlView.md)");
+        builder.AppendLine("- [Overview](../overview.md)");
 
         return builder.ToString().TrimEnd();
     }
@@ -759,7 +790,19 @@ internal sealed class HookReferenceRenderer
         builder.AppendLine($"# {title} Configurations Yaml View");
         builder.AppendLine();
         builder.AppendLine(
-            "Use this generated scaffold as the starting point for the hook configuration block."
+            "> TL;DR — Copy this schema-derived YAML scaffold, replace placeholder values, and use the table view for field descriptions."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## When to use");
+        builder.AppendLine();
+        builder.AppendLine(
+            "Use this page when you need a starting YAML shape for this hook configuration and want all generated fields in one block."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## YAML configuration");
+        builder.AppendLine();
+        builder.AppendLine(
+            "The scaffold follows the generated schema order. String placeholders are quoted, optional lists render as `[]`, and numeric placeholders use schema minimums when they exist."
         );
         builder.AppendLine();
         builder.AppendLine("## Minimal example");
@@ -770,12 +813,37 @@ internal sealed class HookReferenceRenderer
             builder.AppendLine(line);
         }
         builder.AppendLine("```");
+        builder.AppendLine();
+        builder.AppendLine("## Realistic example");
+        builder.AppendLine();
+        builder.AppendLine(
+            "Start with the minimal scaffold, replace placeholder values with project values, and combine it with the surrounding hook entry shown on the overview page."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## Edge cases");
+        builder.AppendLine();
+        builder.AppendLine(
+            "- Optional arrays are emitted as `[]`; add entries only when the hook needs that collection."
+        );
+        builder.AppendLine(
+            "- Placeholder-style strings are quoted so YAML parsers keep them as scalar values."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## See also");
+        builder.AppendLine();
+        builder.AppendLine("- [Configuration table](tableView.md)");
+        builder.AppendLine("- [Overview](../overview.md)");
         return builder.ToString().TrimEnd();
     }
 
     private static string Escape(string value)
     {
         return MarkdownTableCellFormatter.Format(value);
+    }
+
+    private static string FormatDefault(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? string.Empty : $"`{Escape(value)}`";
     }
 
     private sealed record HookKindSpec(
@@ -916,23 +984,15 @@ internal sealed class HookReferenceRenderer
                         return;
                     }
 
-                    RenderYamlCore(
-                        lines,
-                        indentLevel + 1,
-                        children[0].Key,
-                        children[0].Value.ActualSchema,
-                        "- "
-                    );
-
-                    foreach (var child in children.Skip(1))
+                    lines.Add($"{indent}  -");
+                    foreach (var child in children)
                     {
                         RenderYamlCore(lines, indentLevel + 2, child.Key, child.Value.ActualSchema);
                     }
                 }
                 else
                 {
-                    lines.Add(propertyLine);
-                    lines.Add($"{indent}  - {RenderSampleScalar(itemSchema.ActualSchema)}");
+                    lines.Add($"{indent}{linePrefix}{propertyName}: []");
                 }
 
                 return;
@@ -964,11 +1024,6 @@ internal sealed class HookReferenceRenderer
                 }
             }
 
-            if (HasPlaceholderPattern(schema) && HasType(schema, JsonObjectType.String))
-            {
-                return "\"${value}\"";
-            }
-
             if (schema.Default is not null)
             {
                 return FormatYamlScalar(schema.Default);
@@ -976,12 +1031,12 @@ internal sealed class HookReferenceRenderer
 
             if (HasType(schema, JsonObjectType.Boolean))
             {
-                return "true";
+                return "True";
             }
 
             if (HasType(schema, JsonObjectType.Integer))
             {
-                return "1";
+                return FormatMinimum(schema, "0");
             }
 
             if (HasType(schema, JsonObjectType.Number))
@@ -991,7 +1046,7 @@ internal sealed class HookReferenceRenderer
 
             if (HasType(schema, JsonObjectType.String))
             {
-                return "\"value\"";
+                return "'value'";
             }
 
             if (HasType(schema, JsonObjectType.Array))
@@ -1004,7 +1059,7 @@ internal sealed class HookReferenceRenderer
                 return "{}";
             }
 
-            return "\"value\"";
+            return "'value'";
         }
 
         private static bool HasType(JsonSchema schema, JsonObjectType type)
@@ -1022,19 +1077,21 @@ internal sealed class HookReferenceRenderer
             }
         }
 
-        private static bool HasPlaceholderPattern(JsonSchema schema)
+        private static string FormatMinimum(JsonSchema schema, string fallback)
         {
-            return GetCandidateSchemas(schema)
-                .Any(candidate =>
-                    string.Equals(candidate.Pattern, @"\$\{.*\}", StringComparison.Ordinal)
-                );
+            var minimum = GetCandidateSchemas(schema)
+                .Select(candidate => candidate.Minimum)
+                .FirstOrDefault(value => value is not null);
+            return minimum is null
+                ? fallback
+                : Convert.ToString(minimum, CultureInfo.InvariantCulture) ?? fallback;
         }
 
         private static string FormatYamlScalar(object value)
         {
             return value switch
             {
-                bool boolean => boolean ? "true" : "false",
+                bool boolean => boolean ? "True" : "False",
                 byte or sbyte or short or ushort or int or uint or long or ulong =>
                     Convert.ToString(value, CultureInfo.InvariantCulture) ?? "1",
                 float or double or decimal => Convert.ToString(value, CultureInfo.InvariantCulture)
@@ -1045,10 +1102,8 @@ internal sealed class HookReferenceRenderer
 
         private static string QuoteYamlString(string value)
         {
-            var escaped = value
-                .Replace("\\", "\\\\", StringComparison.Ordinal)
-                .Replace("\"", "\\\"", StringComparison.Ordinal);
-            return $"\"{escaped}\"";
+            var escaped = value.Replace("'", "''", StringComparison.Ordinal);
+            return $"'{escaped}'";
         }
 
         private static IEnumerable<KeyValuePair<string, JsonSchemaProperty>> OrderProperties(

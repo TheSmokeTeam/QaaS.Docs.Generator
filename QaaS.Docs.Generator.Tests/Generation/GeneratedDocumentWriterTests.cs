@@ -207,7 +207,7 @@ public sealed class GeneratedDocumentWriterTests
             Assert.That(
                 content,
                 Does.Contain(
-                    "# New Page\n\n> TL;DR: Reference page for New Page.\n\n## Details {: #details}"
+                    "# New Page\n\n> TL;DR — Reference page for New Page.\n\n## Details {: #details}"
                 )
             );
             Assert.That(

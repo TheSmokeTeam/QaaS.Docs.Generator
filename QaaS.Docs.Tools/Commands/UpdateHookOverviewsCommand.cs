@@ -8,14 +8,16 @@ namespace QaaS.Docs.Tools.Commands;
 /// </summary>
 internal sealed class UpdateHookOverviewsCommand : ICommandHandler
 {
-    private static readonly IReadOnlyDictionary<string, string> BaseDirectories =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["assertions"] = Path.Combine("docs", "assertions", "availableAssertions"),
-            ["generators"] = Path.Combine("docs", "generators", "availableGenerators"),
-            ["probes"] = Path.Combine("docs", "probes", "availableProbes"),
-            ["processors"] = Path.Combine("docs", "processors", "availableProcessors")
-        };
+    private static readonly IReadOnlyDictionary<string, string> BaseDirectories = new Dictionary<
+        string,
+        string
+    >(StringComparer.OrdinalIgnoreCase)
+    {
+        ["assertions"] = Path.Combine("docs", "assertions", "availableAssertions"),
+        ["generators"] = Path.Combine("docs", "generators", "availableGenerators"),
+        ["probes"] = Path.Combine("docs", "probes", "availableProbes"),
+        ["processors"] = Path.Combine("docs", "processors", "availableProcessors"),
+    };
 
     public async Task<int> ExecuteAsync(DocsToolContext context, CommandArguments arguments)
     {
@@ -28,7 +30,9 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
             var fullPath = Path.Combine(context.DocsRoot, relativePath);
             if (!File.Exists(fullPath))
             {
-                Console.Error.WriteLine($"Warning: skipping hook overview enrichment for missing page: {fullPath}");
+                Console.Error.WriteLine(
+                    $"Warning: skipping hook overview enrichment for missing page: {fullPath}"
+                );
                 continue;
             }
 
@@ -52,14 +56,19 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
 
     private static async Task<string> GetOverviewSummaryAsync(string path)
     {
-        var content = MarkdownFrontmatter.Remove(Utf8File.NormalizeLineEndings(await Utf8File.ReadAllTextAsync(path))).Trim();
+        var content = MarkdownFrontmatter
+            .Remove(Utf8File.NormalizeLineEndings(await Utf8File.ReadAllTextAsync(path)))
+            .Trim();
         if (string.IsNullOrWhiteSpace(content))
         {
             throw new InvalidOperationException($"Hook overview file is empty: {path}");
         }
 
         var lines = content.Split('\n').ToList();
-        if (lines.Count != 0 && lines[0].StartsWith("<!-- generated hash:", StringComparison.Ordinal))
+        if (
+            lines.Count != 0
+            && lines[0].StartsWith("<!-- generated hash:", StringComparison.Ordinal)
+        )
         {
             lines.RemoveAt(0);
         }
@@ -80,13 +89,13 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
         var body = string.Join("\n", lines).Trim();
         if (string.IsNullOrWhiteSpace(body))
         {
-            throw new InvalidOperationException($"Hook overview file does not contain a summary body: {path}");
+            throw new InvalidOperationException(
+                $"Hook overview file does not contain a summary body: {path}"
+            );
         }
 
         var headingIndex = body.IndexOf("\n## ", StringComparison.Ordinal);
-        return headingIndex >= 0
-            ? body[..headingIndex].Trim()
-            : body;
+        return headingIndex >= 0 ? body[..headingIndex].Trim() : body;
     }
 
     private static void TrimBlankEdges(List<string> lines)
@@ -104,16 +113,29 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
 
     private static string RenderOverview(HookOverviewEntry entry, string summary)
     {
+        var hookDisplayName = entry.Kind.ToLowerInvariant() switch
+        {
+            "assertions" => "Assertions",
+            "generators" => "Generators",
+            "probes" => "Probes",
+            "processors" => "Processors",
+            _ => "Hooks",
+        };
+
         return string.Join(
             "\n",
             [
                 $"# {entry.Name}",
                 string.Empty,
-                summary.Trim(),
+                $"> TL;DR — {summary.Trim()}",
                 string.Empty,
-                "## What It Does",
+                "## When to use",
                 string.Empty,
                 entry.WhatItDoes.Trim(),
+                string.Empty,
+                "## YAML configuration",
+                string.Empty,
+                "Use the hook name in the matching runtime section, then place hook-specific fields under the configuration object shown in the examples below.",
                 string.Empty,
                 "## Minimal example",
                 string.Empty,
@@ -124,13 +146,34 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
                 "## Realistic example",
                 string.Empty,
                 entry.ConfigExplanation.Trim(),
-                string.Empty
-            ]);
+                string.Empty,
+                "## Edge cases",
+                string.Empty,
+                "- Missing required configuration keys fail schema validation before the hook runs.",
+                "- Keep hook names and referenced session or data-source names aligned with the surrounding YAML.",
+                string.Empty,
+                "## See also",
+                string.Empty,
+                "- [Configuration table](configuration/tableView.md)",
+                "- [YAML scaffold](configuration/yamlView.md)",
+                $"- [{hookDisplayName}](../../index.md)",
+                string.Empty,
+            ]
+        );
     }
 
-    private static async Task SetOrCheckMarkdownAsync(string path, string relativePath, string content, bool check)
+    private static async Task SetOrCheckMarkdownAsync(
+        string path,
+        string relativePath,
+        string content,
+        bool check
+    )
     {
-        var expected = MarkdownFrontmatter.ApplyExistingOrDefault(path, relativePath, Utf8File.NormalizeLineEndings(content));
+        var expected = MarkdownFrontmatter.ApplyExistingOrDefault(
+            path,
+            relativePath,
+            Utf8File.NormalizeLineEndings(content)
+        );
         var current = File.Exists(path)
             ? Utf8File.NormalizeLineEndings(await Utf8File.ReadAllTextAsync(path))
             : null;
@@ -145,6 +188,9 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
             return;
         }
 
-        await Utf8File.WriteAllTextAsync(path, expected.Replace("\n", Environment.NewLine, StringComparison.Ordinal));
+        await Utf8File.WriteAllTextAsync(
+            path,
+            expected.Replace("\n", Environment.NewLine, StringComparison.Ordinal)
+        );
     }
 }
