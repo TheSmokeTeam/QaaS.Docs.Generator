@@ -104,7 +104,7 @@ internal static class FunctionCatalogBuilder
                             string.IsNullOrWhiteSpace(documentation.Summary)
                                 ? "_No XML summary provided._"
                                 : documentation.Summary,
-                            documentation.Remarks,
+                            SanitizeRemarks(documentation.Remarks),
                             Path.GetRelativePath(productRoot, filePath).Replace('\\', '/'),
                             lineNumber,
                             typeDeclaration.Identifier.Text,
@@ -186,6 +186,23 @@ internal static class FunctionCatalogBuilder
     {
         return !string.IsNullOrWhiteSpace(documentation.Summary)
             || !string.IsNullOrWhiteSpace(documentation.Remarks);
+    }
+
+    private static string SanitizeRemarks(string remarks)
+    {
+        var normalized = Regex.Replace(remarks, "\\s+", " ").Trim();
+        if (
+            normalized.StartsWith(
+                "Use this method when working with the documented ",
+                StringComparison.Ordinal
+            )
+            && normalized.Contains(" API surface in code.", StringComparison.Ordinal)
+        )
+        {
+            return string.Empty;
+        }
+
+        return remarks;
     }
 
     private static bool IsExcludedSerializerMember(BaseMethodDeclarationSyntax member)

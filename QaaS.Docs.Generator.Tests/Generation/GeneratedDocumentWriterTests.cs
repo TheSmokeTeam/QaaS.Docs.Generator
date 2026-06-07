@@ -157,6 +157,58 @@ public sealed class GeneratedDocumentWriterTests
     }
 
     [Test]
+    public void Write_WhenExistingVerificationMarkerHasFrontmatterGap_PreservesIt()
+    {
+        var docsRoot = CreateTempDocsRoot();
+        var pagePath = Path.Combine(
+            docsRoot,
+            "docs",
+            "qaas",
+            "functions",
+            "builders",
+            "transactions-sections",
+            "configuration.md"
+        );
+        Directory.CreateDirectory(Path.GetDirectoryName(pagePath)!);
+        File.WriteAllText(
+            pagePath,
+            """
+            ---
+            id: qaas.functions.builders.transactions.sections.configuration
+            type: reference
+            ---
+
+            <!-- Verified-against: QaaS.Runner\QaaS.Runner.Sessions\Actions\Transactions\Builders\TransactionBuilder.cs -->
+
+            # Old
+            """
+        );
+
+        GeneratedDocumentWriter
+            .Create(docsRoot)
+            .Write([
+                new GeneratedDocument(
+                    "qaas/functions/builders/transactions-sections/configuration.md",
+                    "# Transactions: Configuration\n\nGenerated body."
+                ),
+            ]);
+
+        var content = File.ReadAllText(pagePath).Replace("\r\n", "\n", StringComparison.Ordinal);
+        const string marker =
+            "<!-- Verified-against: QaaS.Runner\\QaaS.Runner.Sessions\\Actions\\Transactions\\Builders\\TransactionBuilder.cs -->";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CountOccurrences(content, marker), Is.EqualTo(1));
+            Assert.That(
+                content,
+                Does.Contain($"---\n\n{marker}\n\n# Transactions: Configuration")
+            );
+            Assert.That(content, Does.Not.Contain("# Old"));
+        });
+    }
+
+    [Test]
     public void Write_WhenGeneratedPageIsNew_AddsDefaultFrontmatter()
     {
         var docsRoot = CreateTempDocsRoot();

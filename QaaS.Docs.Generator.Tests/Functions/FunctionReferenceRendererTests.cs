@@ -7,6 +7,48 @@ namespace QaaS.Docs.Generator.Tests.Functions;
 public class FunctionReferenceRendererTests
 {
     [Test]
+    public async Task BuildAsync_WhenRemarksAreGeneratedApiSurfaceFallback_DropsRemarks()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var runnerRoot = Path.Combine(tempRoot, "runner");
+        var mockerRoot = Path.Combine(tempRoot, "mocker");
+        var frameworkRoot = Path.Combine(tempRoot, "framework");
+        Directory.CreateDirectory(runnerRoot);
+        Directory.CreateDirectory(mockerRoot);
+        Directory.CreateDirectory(frameworkRoot);
+
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(runnerRoot, "SessionBuilder.cs"),
+                """
+                public class SessionBuilder
+                {
+                    /// <summary>
+                    /// Sets the session name.
+                    /// </summary>
+                    /// <remarks>
+                    /// Use this method when working with the documented Runner session builder API surface in code. The change is stored on the current builder instance and is consumed by later build, validation, or execution steps.
+                    /// </remarks>
+                    /// <qaas-docs group="Builders" subgroup="Sessions" />
+                    public SessionBuilder Named(string name) => this;
+                }
+                """);
+
+            var catalog = await FunctionCatalogBuilder.BuildAsync(runnerRoot, mockerRoot, frameworkRoot);
+
+            Assert.That(catalog.Entries.Single().Remarks, Is.Empty);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Test]
     public void Render_WhenOverviewIsGenerated_UsesAvailableFunctionsSection()
     {
         var catalog = new FunctionCatalog(

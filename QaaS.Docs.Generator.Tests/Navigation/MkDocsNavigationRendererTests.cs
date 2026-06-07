@@ -69,7 +69,7 @@ public sealed class MkDocsNavigationRendererTests
                     "functions",
                     "builders",
                     "assertions-sections",
-                    "when-to-use.md"
+                    "general.md"
                 )
             );
 
@@ -79,7 +79,28 @@ public sealed class MkDocsNavigationRendererTests
                     "<!-- Verified-against: QaaS.Runner\\QaaS.Runner.Assertions\\ConfigurationObjects\\AssertionBuilder.cs -->"
                 )
             );
-            Assert.That(sectionPage, Does.Not.Contain("[Functions](../index.md)"));
+            Assert.That(
+                sectionPage,
+                Does.Contain(
+                    "> TL;DR — This page mirrors the `General` section from [Assertions](../assertions.md) as a focused reference."
+                )
+            );
+            Assert.That(sectionPage, Does.Contain("## C# (CAC) usage"));
+            Assert.That(sectionPage, Does.Contain("- [Assertions](../assertions.md)"));
+            Assert.That(
+                File.Exists(
+                    Path.Combine(
+                        docsRoot,
+                        "docs",
+                        "qaas",
+                        "functions",
+                        "builders",
+                        "assertions-sections",
+                        "when-to-use.md"
+                    )
+                ),
+                Is.False
+            );
         }
         finally
         {
@@ -177,6 +198,14 @@ public sealed class MkDocsNavigationRendererTests
             ## When to use
 
             Use this section to choose the right function.
+
+            ## General
+
+            ### `DoThing`
+
+            ??? info "Source file, signature, and docstring"
+                **Member**
+                `Example.DoThing()`
 
             ## See also
 

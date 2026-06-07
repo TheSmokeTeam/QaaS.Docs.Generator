@@ -63,7 +63,7 @@ internal sealed class GeneratedDocumentWriter
                 normalizedContent
             );
             normalizedContent = MarkdownReferenceSkeleton.Apply(normalizedContent);
-            normalizedContent = MarkdownHeadingAnchors.Apply(normalizedContent);
+            normalizedContent = MarkdownHeadingAnchors.Apply(fullPath, normalizedContent);
             if (
                 !normalizedContent.EndsWith(
                     GeneratedDocumentLineEndings.Canonical,
@@ -121,6 +121,11 @@ internal static class MarkdownReferenceSkeleton
             return normalizedContent;
         }
 
+        var keepFrontmatterGap = body.StartsWith(
+            GeneratedDocumentLineEndings.Canonical + GeneratedDocumentLineEndings.Canonical,
+            StringComparison.Ordinal
+        );
+
         if (!ContainsTldr(normalizedBody))
         {
             normalizedBody = InsertTldr(
@@ -134,10 +139,15 @@ internal static class MarkdownReferenceSkeleton
             normalizedBody = AppendSeeAlso(normalizedBody);
         }
 
-        return string.Join(
-            GeneratedDocumentLineEndings.Canonical,
-            [frontmatter.TrimEnd('\r', '\n'), normalizedBody.TrimStart('\r', '\n')]
-        );
+        var outputLines = keepFrontmatterGap
+            ? new[]
+            {
+                frontmatter.TrimEnd('\r', '\n'),
+                string.Empty,
+                normalizedBody.TrimStart('\r', '\n'),
+            }
+            : [frontmatter.TrimEnd('\r', '\n'), normalizedBody.TrimStart('\r', '\n')];
+        return string.Join(GeneratedDocumentLineEndings.Canonical, outputLines);
     }
 
     private static bool TrySplitFrontmatter(string content, out string frontmatter, out string body)
@@ -305,12 +315,14 @@ internal static class MarkdownVerificationMarkers
     {
         var normalizedContent = GeneratedDocumentLineEndings.Normalize(generatedContent);
         var markers = new List<string>();
+        var keepFrontmatterGap = HasFrontmatterGapBeforeMarker(normalizedContent);
 
         if (File.Exists(fullPath))
         {
             var existingContent = GeneratedDocumentLineEndings.Normalize(
                 File.ReadAllText(fullPath)
             );
+            keepFrontmatterGap = HasFrontmatterGapBeforeMarker(existingContent);
             markers.AddRange(ExtractMarkers(existingContent));
         }
 
@@ -318,7 +330,7 @@ internal static class MarkdownVerificationMarkers
         markers = markers.Distinct(StringComparer.Ordinal).ToList();
 
         var body = Remove(normalizedContent);
-        return markers.Count == 0 ? body : InsertAfterFrontmatter(body, markers);
+        return markers.Count == 0 ? body : InsertAfterFrontmatter(body, markers, keepFrontmatterGap);
     }
 
     public static string Remove(string content)
@@ -361,7 +373,54 @@ internal static class MarkdownVerificationMarkers
             && trimmed.EndsWith("-->", StringComparison.Ordinal);
     }
 
-    private static string InsertAfterFrontmatter(string content, IReadOnlyList<string> markers)
+    private static bool HasFrontmatterGapBeforeMarker(string content)
+    {
+        var normalized = GeneratedDocumentLineEndings.Normalize(content);
+        if (
+            !normalized.StartsWith(
+                "---" + GeneratedDocumentLineEndings.Canonical,
+                StringComparison.Ordinal
+            )
+        )
+        {
+            return false;
+        }
+
+        var frontmatterEnd = normalized.IndexOf(
+            GeneratedDocumentLineEndings.Canonical + "---" + GeneratedDocumentLineEndings.Canonical,
+            GeneratedDocumentLineEndings.Canonical.Length,
+            StringComparison.Ordinal
+        );
+        if (frontmatterEnd < 0)
+        {
+            return false;
+        }
+
+        var splitIndex =
+            frontmatterEnd + GeneratedDocumentLineEndings.Canonical.Length + "---".Length;
+        var afterFrontmatter = normalized[splitIndex..];
+        if (
+            !afterFrontmatter.StartsWith(
+                GeneratedDocumentLineEndings.Canonical + GeneratedDocumentLineEndings.Canonical,
+                StringComparison.Ordinal
+            )
+        )
+        {
+            return false;
+        }
+
+        var firstBodyLine = afterFrontmatter
+            .TrimStart('\r', '\n')
+            .Split(GeneratedDocumentLineEndings.Canonical, 2)[0]
+            .Trim();
+        return IsMarkerLine(firstBodyLine);
+    }
+
+    private static string InsertAfterFrontmatter(
+        string content,
+        IReadOnlyList<string> markers,
+        bool keepFrontmatterGap
+    )
     {
         var markerBlock = string.Join(GeneratedDocumentLineEndings.Canonical, markers);
         var normalized = GeneratedDocumentLineEndings.Normalize(content);
@@ -385,9 +444,12 @@ internal static class MarkdownVerificationMarkers
                     frontmatterEnd + GeneratedDocumentLineEndings.Canonical.Length + "---".Length;
                 var frontmatter = normalized[..splitIndex].TrimEnd('\r', '\n');
                 var body = normalized[splitIndex..].TrimStart('\r', '\n');
+                var lines = keepFrontmatterGap
+                    ? new[] { frontmatter, string.Empty, markerBlock, string.Empty, body }
+                    : new[] { frontmatter, markerBlock, string.Empty, body };
                 return string.Join(
                     GeneratedDocumentLineEndings.Canonical,
-                    [frontmatter, markerBlock, string.Empty, body]
+                    lines
                 );
             }
         }

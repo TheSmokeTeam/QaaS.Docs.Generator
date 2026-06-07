@@ -4,7 +4,20 @@ namespace QaaS.Docs.Generator;
 
 internal static class MarkdownHeadingAnchors
 {
+    public static string Apply(string fullPath, string content)
+    {
+        var existingAnchors = File.Exists(fullPath)
+            ? ExistingHeadingAnchors.Parse(File.ReadAllText(fullPath))
+            : ExistingHeadingAnchors.Empty;
+        return Apply(content, existingAnchors);
+    }
+
     public static string Apply(string content)
+    {
+        return Apply(content, ExistingHeadingAnchors.Empty);
+    }
+
+    private static string Apply(string content, ExistingHeadingAnchors existingAnchors)
     {
         var lines = GeneratedDocumentLineEndings
             .Normalize(content)
@@ -36,7 +49,8 @@ internal static class MarkdownHeadingAnchors
                 continue;
             }
 
-            var anchor = CreateUniqueAnchor(Slugify(headingText), seenAnchors);
+            var anchor = existingAnchors.TryTake(hashes, headingText, seenAnchors)
+                ?? CreateUniqueAnchor(Slugify(headingText), seenAnchors);
             lines[index] = $"{hashes} {headingText.TrimEnd()} {{: #{anchor}}}";
         }
 
@@ -161,5 +175,108 @@ internal static class MarkdownHeadingAnchors
     private static bool IsAnchorCharacter(char character)
     {
         return IsAsciiLetterOrDigit(character) || character is '-' or '_';
+    }
+
+    private sealed class ExistingHeadingAnchors
+    {
+        public static readonly ExistingHeadingAnchors Empty = new([]);
+
+        private readonly Dictionary<string, Queue<string>> _anchorsByHeading;
+
+        private ExistingHeadingAnchors(Dictionary<string, Queue<string>> anchorsByHeading)
+        {
+            _anchorsByHeading = anchorsByHeading;
+        }
+
+        public static ExistingHeadingAnchors Parse(string content)
+        {
+            var anchors = new Dictionary<string, Queue<string>>(StringComparer.Ordinal);
+            var lines = GeneratedDocumentLineEndings
+                .Normalize(content)
+                .Split(GeneratedDocumentLineEndings.Canonical);
+            var inFence = false;
+
+            foreach (var line in lines)
+            {
+                var trimmedStart = line.TrimStart();
+                if (
+                    trimmedStart.StartsWith("```", StringComparison.Ordinal)
+                    || trimmedStart.StartsWith("~~~", StringComparison.Ordinal)
+                )
+                {
+                    inFence = !inFence;
+                    continue;
+                }
+
+                if (
+                    inFence
+                    || !TryParseCheckedHeading(line, out var hashes, out var headingText)
+                    || !TryGetExplicitAnchor(headingText, out var anchor)
+                )
+                {
+                    continue;
+                }
+
+                var key = CreateKey(hashes, RemoveAnchor(headingText));
+                if (!anchors.TryGetValue(key, out var queue))
+                {
+                    queue = new Queue<string>();
+                    anchors[key] = queue;
+                }
+
+                queue.Enqueue(anchor);
+            }
+
+            return new ExistingHeadingAnchors(anchors);
+        }
+
+        public string? TryTake(
+            string hashes,
+            string headingText,
+            IDictionary<string, int> seenAnchors
+        )
+        {
+            var key = CreateKey(hashes, headingText);
+            if (!_anchorsByHeading.TryGetValue(key, out var queue))
+            {
+                return null;
+            }
+
+            while (queue.Count != 0)
+            {
+                var anchor = queue.Dequeue();
+                if (seenAnchors.TryAdd(anchor, 1))
+                {
+                    return anchor;
+                }
+            }
+
+            return null;
+        }
+
+        private static string CreateKey(string hashes, string headingText)
+        {
+            return $"{hashes}\n{RemoveAnchor(headingText).Trim()}";
+        }
+
+        private static string RemoveAnchor(string headingText)
+        {
+            var trimmed = headingText.TrimEnd();
+            if (!trimmed.EndsWith('}'))
+            {
+                return headingText;
+            }
+
+            var openIndex = trimmed.LastIndexOf('{');
+            if (openIndex < 0)
+            {
+                return headingText;
+            }
+
+            var attribute = trimmed[openIndex..];
+            return attribute.Contains('#', StringComparison.Ordinal)
+                ? trimmed[..openIndex].TrimEnd()
+                : headingText;
+        }
     }
 }

@@ -41,6 +41,7 @@ internal static class MarkdownFrontmatter
         }
 
         var finalContent = MarkdownHeadingAnchors.Apply(
+            fullPath,
             MarkdownReferenceSkeleton.Apply(
                 MarkdownVerificationMarkers.ApplyExisting(fullPath, contentWithFrontmatter)
             )

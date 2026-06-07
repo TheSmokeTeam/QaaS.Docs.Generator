@@ -140,8 +140,7 @@ internal sealed class ConfigurationReferenceRenderer
                             $"{typeReference.Title} Configurations Yaml View",
                             typeReference.SchemaPropertyName,
                             property,
-                            $"{typeReference.DocsSlug}-tableView.md",
-                            includeOverviewLink: false
+                            $"{typeReference.DocsSlug}-tableView.md"
                         ),
                         [
                             familyDocs.FamilyId,
@@ -300,7 +299,7 @@ internal sealed class ConfigurationReferenceRenderer
 
     private static string FormatDefault(string value)
     {
-        return string.IsNullOrWhiteSpace(value) ? string.Empty : $"`{Escape(value)}`";
+        return string.IsNullOrWhiteSpace(value) ? string.Empty : Escape(value);
     }
 
     private static bool TryGetSessionItemSchema(JsonSchema schema, out JsonSchema itemSchema)

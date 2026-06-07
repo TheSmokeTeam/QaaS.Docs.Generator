@@ -36,7 +36,7 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
                 continue;
             }
 
-            var summary = await GetOverviewSummaryAsync(fullPath);
+            var summary = await GetOverviewSummaryAsync(context.DocsRoot, relativePath, fullPath);
             var content = RenderOverview(entry, summary);
             await SetOrCheckMarkdownAsync(fullPath, relativePath, content, check);
         }
@@ -54,10 +54,25 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
         return Path.Combine(baseDirectory, entry.Name, "overview.md");
     }
 
-    private static async Task<string> GetOverviewSummaryAsync(string path)
+    private static async Task<string> GetOverviewSummaryAsync(
+        string docsRoot,
+        string relativePath,
+        string path
+    )
     {
+        var rawContent = Utf8File.NormalizeLineEndings(await Utf8File.ReadAllTextAsync(path));
+        if (await TryGetTrackedOverviewTldrAsync(docsRoot, relativePath) is { } trackedTldr)
+        {
+            return trackedTldr;
+        }
+
+        if (IsEnrichedHookOverview(rawContent) && TryGetExistingTldr(rawContent, out var existingTldr))
+        {
+            return existingTldr;
+        }
+
         var content = MarkdownFrontmatter
-            .Remove(Utf8File.NormalizeLineEndings(await Utf8File.ReadAllTextAsync(path)))
+            .Remove(rawContent)
             .Trim();
         if (string.IsNullOrWhiteSpace(content))
         {
@@ -96,6 +111,61 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
 
         var headingIndex = body.IndexOf("\n## ", StringComparison.Ordinal);
         return headingIndex >= 0 ? body[..headingIndex].Trim() : body;
+    }
+
+    private static async Task<string?> TryGetTrackedOverviewTldrAsync(
+        string docsRoot,
+        string relativePath
+    )
+    {
+        var result = await ProcessRunner.RunAsync(
+            "git",
+            ["-C", docsRoot, "show", $"HEAD:{relativePath.Replace('\\', '/')}"],
+            docsRoot,
+            throwOnFailure: false
+        );
+        if (
+            result.ExitCode != 0
+            || string.IsNullOrWhiteSpace(result.StandardOutput)
+            || !IsEnrichedHookOverview(result.StandardOutput)
+            || !TryGetExistingTldr(result.StandardOutput, out var trackedTldr)
+        )
+        {
+            return null;
+        }
+
+        return trackedTldr;
+    }
+
+    private static bool IsEnrichedHookOverview(string content)
+    {
+        var normalized = Utf8File.NormalizeLineEndings(content);
+        return normalized.Contains("\n## YAML configuration", StringComparison.Ordinal)
+            && normalized.Contains("\n## Minimal example", StringComparison.Ordinal)
+            && normalized.Contains("\n## Realistic example", StringComparison.Ordinal);
+    }
+
+    private static bool TryGetExistingTldr(string content, out string summary)
+    {
+        const string tldrPrefix = "> TL;DR";
+        summary = string.Empty;
+
+        foreach (var line in Utf8File.NormalizeLineEndings(content).Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith(tldrPrefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            summary = trimmed[tldrPrefix.Length..]
+                .Trim()
+                .TrimStart('—', '-', ':')
+                .Trim();
+            return !string.IsNullOrWhiteSpace(summary);
+        }
+
+        return false;
     }
 
     private static void TrimBlankEdges(List<string> lines)

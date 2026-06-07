@@ -382,7 +382,7 @@ internal sealed class MkDocsNavigationRenderer
             if (
                 string.IsNullOrWhiteSpace(title)
                 || title.Contains('`', StringComparison.Ordinal)
-                || string.Equals(title, "See also", StringComparison.Ordinal)
+                || IsGeneratedScaffoldSection(title)
             )
             {
                 continue;
@@ -409,6 +409,11 @@ internal sealed class MkDocsNavigationRenderer
         }
 
         return null;
+    }
+
+    private static bool IsGeneratedScaffoldSection(string title)
+    {
+        return title is "When to use" or "Edge cases" or "See also";
     }
 
     private static IReadOnlyList<ParsedFunctionSection> BuildSectionTree(
@@ -499,7 +504,8 @@ internal sealed class MkDocsNavigationRenderer
             page.ParsedPage,
             section,
             ancestors,
-            outputRelativePath
+            outputRelativePath,
+            !File.Exists(outputFullPath)
         );
         WriteOrCheckFile(outputFullPath, outputRelativePath, expectedContent, check);
 
@@ -519,7 +525,8 @@ internal sealed class MkDocsNavigationRenderer
         ParsedFunctionPage page,
         ParsedFunctionSection section,
         IReadOnlyList<ParsedFunctionSection> ancestors,
-        string outputRelativePath
+        string outputRelativePath,
+        bool includeParentMarkers
     )
     {
         var breadcrumb = ancestors
@@ -536,31 +543,56 @@ internal sealed class MkDocsNavigationRenderer
             .ToList();
 
         RemoveTrailingSeeAlsoSection(bodyLines);
-        NormalizeNestedHeadings(bodyLines, section.Level - 1);
+        NormalizeNestedHeadings(bodyLines, section.Level - 2);
         TrimBlankLines(bodyLines);
 
         var builder = new StringBuilder();
-        foreach (var marker in ExtractVerificationMarkers(page.Lines))
+        if (includeParentMarkers)
         {
-            builder.AppendLine(marker);
-        }
+            foreach (var marker in ExtractVerificationMarkers(page.Lines))
+            {
+                builder.AppendLine(marker);
+            }
 
-        if (builder.Length != 0)
-        {
-            builder.AppendLine();
+            if (builder.Length != 0)
+            {
+                builder.AppendLine();
+            }
         }
 
         builder.AppendLine($"# {title}");
         builder.AppendLine();
         builder.AppendLine(
-            $"This page mirrors the `{string.Join(" / ", breadcrumb)}` section from [{page.Title}]({relativeLinkToParent})."
+            $"> TL;DR — This page mirrors the `{string.Join(" / ", breadcrumb)}` section from [{page.Title}]({relativeLinkToParent}) as a focused reference."
         );
+        builder.AppendLine();
+        builder.AppendLine("## When to use");
+        builder.AppendLine();
+        builder.AppendLine(
+            "Use this page when you need the focused member list, signatures, and source notes for this section without scanning the full parent reference."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## C# (CAC) usage");
+        builder.AppendLine();
 
         if (bodyLines.Count != 0)
         {
-            builder.AppendLine();
             builder.AppendLine(string.Join(GeneratedDocumentLineEndings.Canonical, bodyLines));
+            builder.AppendLine();
         }
+
+        builder.AppendLine("## Edge cases");
+        builder.AppendLine();
+        builder.AppendLine(
+            "- This page is generated from the parent reference section; edit the source XML docs or generator when content needs to change."
+        );
+        builder.AppendLine(
+            "- If a linked source member is renamed, regenerate the reference docs before changing prose by hand."
+        );
+        builder.AppendLine();
+        builder.AppendLine("## See also");
+        builder.AppendLine();
+        builder.AppendLine($"- [{page.Title}]({relativeLinkToParent})");
 
         return builder.ToString().TrimEnd();
     }
