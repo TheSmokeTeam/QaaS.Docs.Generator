@@ -67,8 +67,12 @@ public class FunctionReferenceRendererTests
                 public static class DataExtensions
                 {
                     /// <summary>
-                    /// Converts the <paramref name="body"/> into <typeparamref name="TBody"/> and returns it.
+                    /// Converts the <paramref name="body"/> into <typeparamref name="TBody"/> and returns it
+                    /// (see <see cref="ConvertBodyTo"/>).
                     /// </summary>
+                    /// <remarks>
+                    /// Example: `if (data.TryGetBodyAs&lt;string&gt;(out var text)) { ... }`
+                    /// </remarks>
                     /// <qaas-docs group="Extension Methods" subgroup="Data" />
                     public static TBody GetBodyAs<TBody>(object body) => default!;
                 }
@@ -76,9 +80,15 @@ public class FunctionReferenceRendererTests
 
             var catalog = await FunctionCatalogBuilder.BuildAsync(runnerRoot, mockerRoot, frameworkRoot);
 
-            Assert.That(
-                catalog.Entries.Single().Summary,
-                Is.EqualTo("Converts the body into TBody and returns it."));
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    catalog.Entries.Single().Summary,
+                    Is.EqualTo("Converts the body into TBody and returns it (see ConvertBodyTo)."));
+                Assert.That(
+                    catalog.Entries.Single().Remarks,
+                    Is.EqualTo("Example: `if (data.TryGetBodyAs<string>(out var text)) { ... }`"));
+            });
         }
         finally
         {
