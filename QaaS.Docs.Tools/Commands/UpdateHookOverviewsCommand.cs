@@ -66,14 +66,15 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
             return trackedTldr;
         }
 
-        if (IsEnrichedHookOverview(rawContent) && TryGetExistingTldr(rawContent, out var existingTldr))
+        if (
+            IsEnrichedHookOverview(rawContent)
+            && TryGetExistingTldr(rawContent, out var existingTldr)
+        )
         {
             return existingTldr;
         }
 
-        var content = MarkdownFrontmatter
-            .Remove(rawContent)
-            .Trim();
+        var content = MarkdownFrontmatter.Remove(rawContent).Trim();
         if (string.IsNullOrWhiteSpace(content))
         {
             throw new InvalidOperationException($"Hook overview file is empty: {path}");
@@ -158,10 +159,7 @@ internal sealed class UpdateHookOverviewsCommand : ICommandHandler
                 continue;
             }
 
-            summary = trimmed[tldrPrefix.Length..]
-                .Trim()
-                .TrimStart('—', '-', ':')
-                .Trim();
+            summary = trimmed[tldrPrefix.Length..].Trim().TrimStart('—', '-', ':').Trim();
             return !string.IsNullOrWhiteSpace(summary);
         }
 

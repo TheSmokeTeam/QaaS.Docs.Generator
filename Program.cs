@@ -14,23 +14,33 @@ internal static class Program
         if (options is null)
         {
             Console.Error.WriteLine(
-                "Usage: --docs-root <path> --mirror-root <path> --runner-root <path> --mocker-root <path> --framework-root <path> [--check]");
+                "Usage: --docs-root <path> --mirror-root <path> --runner-root <path> --mocker-root <path> --framework-root <path> [--check]"
+            );
             return 1;
         }
 
         try
         {
-            var runnerSchemaDocs = await FamilySchemaDocs.LoadAsync(Path.Combine(options.MirrorRoot, "schemas", "runner-family", "latest"));
-            var mockerSchemaDocs = await FamilySchemaDocs.LoadAsync(Path.Combine(options.MirrorRoot, "schemas", "mocker-family", "latest"));
+            var runnerSchemaDocs = await FamilySchemaDocs.LoadAsync(
+                Path.Combine(options.MirrorRoot, "schemas", "runner-family", "latest")
+            );
+            var mockerSchemaDocs = await FamilySchemaDocs.LoadAsync(
+                Path.Combine(options.MirrorRoot, "schemas", "mocker-family", "latest")
+            );
 
             var toolRoot = Path.Combine(options.DocsRoot, "tools", "QaaS.Docs.Generator");
-            var runnerCliCatalog = await RunnerCliCatalog.LoadAsync(Path.Combine(toolRoot, "Snapshots", "runner-cli.json"));
-            var mockerCliCatalog = await MockerCliCatalog.LoadAsync(Path.Combine(toolRoot, "Snapshots", "mocker-cli.json"));
+            var runnerCliCatalog = await RunnerCliCatalog.LoadAsync(
+                Path.Combine(toolRoot, "Snapshots", "runner-cli.json")
+            );
+            var mockerCliCatalog = await MockerCliCatalog.LoadAsync(
+                Path.Combine(toolRoot, "Snapshots", "mocker-cli.json")
+            );
 
             var functionCatalog = await FunctionCatalogBuilder.BuildAsync(
                 options.RunnerRoot,
                 options.MockerRoot,
-                options.FrameworkRoot);
+                options.FrameworkRoot
+            );
 
             var writer = options.Check
                 ? GeneratedDocumentWriter.CreateDryRun(options.DocsRoot)
@@ -41,7 +51,10 @@ internal static class Program
             documents.AddRange(new CliReferenceRenderer().RenderMocker(mockerCliCatalog));
             documents.AddRange(new ConfigurationReferenceRenderer().RenderRunner(runnerSchemaDocs));
             documents.AddRange(new ConfigurationReferenceRenderer().RenderMocker(mockerSchemaDocs));
-            var hookDocuments = await new HookReferenceRenderer().RenderAsync(options.DocsRoot, options.MirrorRoot);
+            var hookDocuments = await new HookReferenceRenderer().RenderAsync(
+                options.DocsRoot,
+                options.MirrorRoot
+            );
             if (options.Check)
             {
                 // Hook overviews are post-processed by QaaS.Docs.Tools,
@@ -71,7 +84,8 @@ internal static class Program
             Console.WriteLine(
                 "{0} {1} generated documents.",
                 options.Check ? "Validated" : "Wrote",
-                documents.Count);
+                documents.Count
+            );
             return 0;
         }
         catch (Exception exception)
@@ -89,10 +103,19 @@ internal static class Program
             return false;
         }
 
-        return normalizedPath.StartsWith("assertions/availableAssertions/", StringComparison.Ordinal) ||
-               normalizedPath.StartsWith("generators/availableGenerators/", StringComparison.Ordinal) ||
-               normalizedPath.StartsWith("probes/availableProbes/", StringComparison.Ordinal) ||
-               normalizedPath.StartsWith("processors/availableProcessors/", StringComparison.Ordinal);
+        return normalizedPath.StartsWith(
+                "assertions/availableAssertions/",
+                StringComparison.Ordinal
+            )
+            || normalizedPath.StartsWith(
+                "generators/availableGenerators/",
+                StringComparison.Ordinal
+            )
+            || normalizedPath.StartsWith("probes/availableProbes/", StringComparison.Ordinal)
+            || normalizedPath.StartsWith(
+                "processors/availableProcessors/",
+                StringComparison.Ordinal
+            );
     }
 }
 
@@ -102,7 +125,8 @@ internal sealed record GeneratorOptions(
     string RunnerRoot,
     string MockerRoot,
     string FrameworkRoot,
-    bool Check)
+    bool Check
+)
 {
     public static GeneratorOptions? Parse(IReadOnlyList<string> args)
     {
@@ -126,7 +150,8 @@ internal sealed record GeneratorOptions(
             values[current] = args[++index];
         }
 
-        string? Get(string key) => values.TryGetValue(key, out var value) ? Path.GetFullPath(value) : null;
+        string? Get(string key) =>
+            values.TryGetValue(key, out var value) ? Path.GetFullPath(value) : null;
 
         var docsRoot = Get("--docs-root");
         var mirrorRoot = Get("--mirror-root");
@@ -134,15 +159,24 @@ internal sealed record GeneratorOptions(
         var mockerRoot = Get("--mocker-root");
         var frameworkRoot = Get("--framework-root");
 
-        if (docsRoot is null ||
-            mirrorRoot is null ||
-            runnerRoot is null ||
-            mockerRoot is null ||
-            frameworkRoot is null)
+        if (
+            docsRoot is null
+            || mirrorRoot is null
+            || runnerRoot is null
+            || mockerRoot is null
+            || frameworkRoot is null
+        )
         {
             return null;
         }
 
-        return new GeneratorOptions(docsRoot, mirrorRoot, runnerRoot, mockerRoot, frameworkRoot, check);
+        return new GeneratorOptions(
+            docsRoot,
+            mirrorRoot,
+            runnerRoot,
+            mockerRoot,
+            frameworkRoot,
+            check
+        );
     }
 }

@@ -14,7 +14,8 @@ internal sealed record DocsToolContext(
     string GeneratorsRoot,
     string ProbesRoot,
     string ProcessorsRoot,
-    string ResourcesRoot)
+    string ResourcesRoot
+)
 {
     /// <summary>
     /// Resolves the docs repository root plus the sibling repository paths used by the docs commands.
@@ -28,15 +29,24 @@ internal sealed record DocsToolContext(
         return new DocsToolContext(
             docsRoot,
             workspaceRoot,
-            arguments.GetOptionalPath("--mirror-root") ?? Path.Combine(workspaceRoot, "QaaS.PackageMirror"),
-            arguments.GetOptionalPath("--runner-root") ?? Path.Combine(workspaceRoot, "QaaS.Runner"),
-            arguments.GetOptionalPath("--mocker-root") ?? Path.Combine(workspaceRoot, "QaaS.Mocker"),
-            arguments.GetOptionalPath("--framework-root") ?? Path.Combine(workspaceRoot, "QaaS.Framework"),
-            arguments.GetOptionalPath("--assertions-root") ?? Path.Combine(workspaceRoot, "QaaS.Common.Assertions"),
-            arguments.GetOptionalPath("--generators-root") ?? Path.Combine(workspaceRoot, "QaaS.Common.Generators"),
-            arguments.GetOptionalPath("--probes-root") ?? Path.Combine(workspaceRoot, "QaaS.Common.Probes"),
-            arguments.GetOptionalPath("--processors-root") ?? Path.Combine(workspaceRoot, "QaaS.Common.Processors"),
-            resourcesRoot);
+            arguments.GetOptionalPath("--mirror-root")
+                ?? Path.Combine(workspaceRoot, "QaaS.PackageMirror"),
+            arguments.GetOptionalPath("--runner-root")
+                ?? Path.Combine(workspaceRoot, "QaaS.Runner"),
+            arguments.GetOptionalPath("--mocker-root")
+                ?? Path.Combine(workspaceRoot, "QaaS.Mocker"),
+            arguments.GetOptionalPath("--framework-root")
+                ?? Path.Combine(workspaceRoot, "QaaS.Framework"),
+            arguments.GetOptionalPath("--assertions-root")
+                ?? Path.Combine(workspaceRoot, "QaaS.Common.Assertions"),
+            arguments.GetOptionalPath("--generators-root")
+                ?? Path.Combine(workspaceRoot, "QaaS.Common.Generators"),
+            arguments.GetOptionalPath("--probes-root")
+                ?? Path.Combine(workspaceRoot, "QaaS.Common.Probes"),
+            arguments.GetOptionalPath("--processors-root")
+                ?? Path.Combine(workspaceRoot, "QaaS.Common.Processors"),
+            resourcesRoot
+        );
     }
 
     /// <summary>
@@ -67,10 +77,10 @@ internal sealed record DocsToolContext(
         {
             AppContext.BaseDirectory,
             Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..")
+            Path.Combine(AppContext.BaseDirectory, "..", "..", ".."),
         }
-        .Select(path => Path.GetFullPath(path))
-        .Distinct(StringComparer.OrdinalIgnoreCase);
+            .Select(path => Path.GetFullPath(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
 
         foreach (var searchRoot in searchRoots)
         {
@@ -85,7 +95,8 @@ internal sealed record DocsToolContext(
         }
 
         throw new DirectoryNotFoundException(
-            $"Could not locate the QaaS.Docs.Tools resource catalog starting from '{AppContext.BaseDirectory}'.");
+            $"Could not locate the QaaS.Docs.Tools resource catalog starting from '{AppContext.BaseDirectory}'."
+        );
     }
 
     /// <summary>
@@ -95,6 +106,12 @@ internal sealed record DocsToolContext(
     {
         yield return Path.Combine(root, "Resources");
         yield return Path.Combine(root, "QaaS.Docs.Tools", "Resources");
-        yield return Path.Combine(root, "tools", "QaaS.Docs.Generator", "QaaS.Docs.Tools", "Resources");
+        yield return Path.Combine(
+            root,
+            "tools",
+            "QaaS.Docs.Generator",
+            "QaaS.Docs.Tools",
+            "Resources"
+        );
     }
 }
