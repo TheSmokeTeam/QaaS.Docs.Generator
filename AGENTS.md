@@ -1,4 +1,4 @@
-# AGENTS.md — QaaS.Docs.Generator
+﻿# AGENTS.md — QaaS.Docs.Generator
 
 Guidance for AI agents working in this repository.
 
@@ -8,7 +8,7 @@ Deterministic markdown generator for the QaaS docs site (qaas-docs). Produces CL
 
 ## Projects (net10.0)
 
-- **QaaS.Docs.Generator** — main console app. Namespaces: `Cli`, `Schema`, `Functions`, `Hooks`, `Navigation`, `Generation`. Entry: `Program.cs` → `GeneratorOptions.Parse` → parallel loads → render passes (`CliReferenceRenderer`, `ConfigurationReferenceRenderer`, `HookReferenceRenderer`, `FunctionReferenceRenderer`) → `GeneratedDocumentWriter` → `MkDocsNavigationRenderer`. Exit codes: 0 ok / 1 args / 2 drift-or-write / 3 exception.
+- **QaaS.Docs.Generator** — main console app. Namespaces: `Cli`, `Schema`, `Functions`, `Hooks`, `Navigation`, `Generation`. Entry: `Program.cs` → `GeneratorOptions.Parse` → sequential loads → render passes (`CliReferenceRenderer`, `ConfigurationReferenceRenderer`, `HookReferenceRenderer`, `FunctionReferenceRenderer`) → `GeneratedDocumentWriter` → `MkDocsNavigationRenderer`. Exit codes: 0 ok / 1 args / 2 drift-or-write / 3 exception.
 - **QaaS.Docs.Tools** — maintenance verbs: `generate-reference-docs`, `refresh-cli-snapshots`, `sync-schema-assets`, `update-hook-overviews`, `validate-hook-examples`.
 - **QaaS.Docs.Generator.Tests** — NUnit 4.5.1, 10 test files mirroring the namespaces.
 
@@ -26,17 +26,17 @@ dotnet run --project QaaS.Docs.Generator -- --docs-root <qaas-docs> --mirror-roo
 ## Hard rules
 
 1. **CRLF is canonical** for all generated files (`GeneratedDocumentLineEndings`). Never let LF slip in — golden tests and drift checks (`--check`, exit 2) will fail.
-2. **Placement tags gate function docs**: a public method appears in the function reference only with `<qaas-docs-placement group="X" subgroup="Y" />` in its XML docs. Malformed XML = silent skip.
-3. **mkdocs.yml is edited only via marked blocks** (`# <!-- runner-functions-start/end -->` etc.). Don't hand-edit inside markers; missing markers silently skip updates.
+2. **Placement tags gate function docs**: a public method appears in the function reference only with `<qaas-docs group="X" subgroup="Y" />` in its XML docs. Malformed XML = silent skip.
+3. **mkdocs.yml is edited only via marked blocks** (`# qaas-docs-generator start: <key>` / `# qaas-docs-generator end: <key>`). Missing markers throw an exception (not a silent skip). Don't hand-edit inside markers; missing markers silently skip updates.
 4. **Snapshots are committed artifacts** — refresh via `QaaS.Docs.Tools refresh-cli-snapshots`, then commit the JSON.
 5. Frontmatter and `<!-- Verified-against -->` markers are preserved across regenerations — don't strip them.
 6. Hook overview pages get a second-stage enrichment by QaaS.Docs.Tools; generator-stage `--check` excludes them.
 
 ## Gotchas
 
-- Wrong `--mirror-root` → `InvalidOperationException` in `FamilySchemaDocs.LoadAsync`.
+- Wrong `--mirror-root` → `FileNotFoundException` when `schema.json` cannot be read; `InvalidOperationException` is only thrown when `docs-manifest.json` deserialization fails.
 - Schema section order comes from `docs-manifest.json` (`Order`); fallback hardcoded in `FallbackSections.ForFamily()`.
-- Heading anchor collisions are not deduplicated — keep headings unique.
+- Heading anchors are deduplicated automatically (numeric suffixes appended) — keep headings unique to maintain stable anchor links across regenerations.
 - Recent work is about reducing generated-docs churn; prefer changes that keep regeneration byte-stable.
 
 ## Process
