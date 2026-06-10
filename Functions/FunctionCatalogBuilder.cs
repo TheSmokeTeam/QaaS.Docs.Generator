@@ -1136,7 +1136,7 @@ internal static class DocumentationCommentParser
                     yield break;
                 }
 
-                if (element.Name.LocalName == "paramref")
+                if (element.Name.LocalName is "paramref" or "typeparamref")
                 {
                     var name = (string?)element.Attribute("name");
                     if (!string.IsNullOrWhiteSpace(name))

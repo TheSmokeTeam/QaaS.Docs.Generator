@@ -49,6 +49,47 @@ public class FunctionReferenceRendererTests
     }
 
     [Test]
+    public async Task BuildAsync_SummaryWithParamrefAndTypeparamref_RendersTheReferencedNames()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var runnerRoot = Path.Combine(tempRoot, "runner");
+        var mockerRoot = Path.Combine(tempRoot, "mocker");
+        var frameworkRoot = Path.Combine(tempRoot, "framework");
+        Directory.CreateDirectory(runnerRoot);
+        Directory.CreateDirectory(mockerRoot);
+        Directory.CreateDirectory(frameworkRoot);
+
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(runnerRoot, "DataExtensions.cs"),
+                """
+                public static class DataExtensions
+                {
+                    /// <summary>
+                    /// Converts the <paramref name="body"/> into <typeparamref name="TBody"/> and returns it.
+                    /// </summary>
+                    /// <qaas-docs group="Extension Methods" subgroup="Data" />
+                    public static TBody GetBodyAs<TBody>(object body) => default!;
+                }
+                """);
+
+            var catalog = await FunctionCatalogBuilder.BuildAsync(runnerRoot, mockerRoot, frameworkRoot);
+
+            Assert.That(
+                catalog.Entries.Single().Summary,
+                Is.EqualTo("Converts the body into TBody and returns it."));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Test]
     public void Render_WhenOverviewIsGenerated_UsesAvailableFunctionsSection()
     {
         var catalog = new FunctionCatalog(
