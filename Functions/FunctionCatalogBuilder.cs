@@ -735,6 +735,7 @@ internal sealed class FunctionReferenceRenderer
             || shortName.Contains("Trace", StringComparison.Ordinal)
             || shortName.Contains("Attachment", StringComparison.Ordinal)
             || shortName.Contains("Log", StringComparison.Ordinal)
+            || shortName.Contains("SaveTemplate", StringComparison.Ordinal)
             || shortName.Contains("ConfigurationTemplate", StringComparison.Ordinal)
             || shortName.Contains("SessionData", StringComparison.Ordinal)
         )
@@ -936,6 +937,7 @@ internal sealed class FunctionReferenceRenderer
         ("Storage", "Storages"),
         ("Policy", "Policies"),
         ("Assertion", "Assertions"),
+        ("Reporter", "Reporters"),
         ("Probe", "Probes"),
         ("Publisher", "Publishers"),
         ("Consumer", "Consumers"),
@@ -964,6 +966,7 @@ internal sealed class FunctionReferenceRenderer
         "Storages",
         "Policies",
         "Assertions",
+        "Reporters",
         "Probes",
         "Publishers",
         "Consumers",
