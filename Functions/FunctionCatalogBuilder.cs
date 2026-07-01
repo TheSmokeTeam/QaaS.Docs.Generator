@@ -492,6 +492,7 @@ internal sealed class FunctionReferenceRenderer
     )
     {
         var builder = new StringBuilder();
+        AppendVerificationMarkers(builder, entries);
         builder.AppendLine($"# {category.Subgroup}");
         builder.AppendLine();
         builder.AppendLine(
@@ -548,6 +549,7 @@ internal sealed class FunctionReferenceRenderer
     private static string RenderExtensionPage(string product, IReadOnlyList<FunctionEntry> entries)
     {
         var builder = new StringBuilder();
+        AppendVerificationMarkers(builder, entries);
         builder.AppendLine("# Extension Methods");
         builder.AppendLine();
         builder.AppendLine(
@@ -618,6 +620,44 @@ internal sealed class FunctionReferenceRenderer
         builder.AppendLine($"- [{product} Functions](index.md)");
 
         return builder.ToString().TrimEnd();
+    }
+
+    private static void AppendVerificationMarkers(
+        StringBuilder builder,
+        IEnumerable<FunctionEntry> entries
+    )
+    {
+        var markers = entries
+            .Select(RenderVerificationMarker)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(marker => marker, StringComparer.Ordinal)
+            .ToList();
+
+        foreach (var marker in markers)
+        {
+            builder.AppendLine(marker);
+        }
+
+        if (markers.Count != 0)
+        {
+            builder.AppendLine();
+        }
+    }
+
+    private static string RenderVerificationMarker(FunctionEntry entry)
+    {
+        return $"<!-- Verified-against: {GetSourceRepository(entry.Product)}\\{entry.RelativePath.Replace('/', '\\')} -->";
+    }
+
+    private static string GetSourceRepository(string product)
+    {
+        return product switch
+        {
+            "Runner" => "QaaS.Runner",
+            "Mocker" => "QaaS.Mocker",
+            "Framework" => "QaaS.Framework",
+            _ => product,
+        };
     }
 
     private static void RenderFunctionSections(
