@@ -153,6 +153,109 @@ public class FunctionReferenceRendererTests
         });
     }
 
+    [Test]
+    public void Render_WhenExecutionUpdatesReporters_GroupsUnderReportersSection()
+    {
+        var catalog = new FunctionCatalog(
+        [
+            new FunctionEntry(
+                Product: "Runner",
+                Group: "Configuration as Code",
+                Subgroup: "Executions",
+                Kind: "function",
+                DisplayName: "ExecutionBuilder.UpdateReporters(ReporterBuilder reporterBuilder)",
+                ShortName: "UpdateReporters",
+                OverloadName: "UpdateReporters",
+                Signature: "public ExecutionBuilder UpdateReporters(ReporterBuilder reporterBuilder)",
+                Summary: "Updates the reporter configuration.",
+                Remarks: string.Empty,
+                RelativePath: "QaaS.Runner/ExecutionBuilder.cs",
+                LineNumber: 618,
+                DeclaringType: "ExecutionBuilder",
+                IsExtensionMethod: false,
+                HasExplicitPlacement: true),
+            new FunctionEntry(
+                Product: "Runner",
+                Group: "Configuration as Code",
+                Subgroup: "Executions",
+                Kind: "function",
+                DisplayName: "ExecutionBuilder.WithMetadata(MetaDataConfig metaDataConfig)",
+                ShortName: "WithMetadata",
+                OverloadName: "WithMetadata",
+                Signature: "public ExecutionBuilder WithMetadata(MetaDataConfig metaDataConfig)",
+                Summary: "Sets the metadata configuration.",
+                Remarks: string.Empty,
+                RelativePath: "QaaS.Runner/ExecutionBuilder.cs",
+                LineNumber: 605,
+                DeclaringType: "ExecutionBuilder",
+                IsExtensionMethod: false,
+                HasExplicitPlacement: true)
+        ]);
+
+        var documents = new FunctionReferenceRenderer().Render(catalog);
+        var executionsDocument = documents.Single(document =>
+            document.RelativePath == "qaas/functions/builders/executions.md"
+        );
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(executionsDocument.Content, Does.Contain("## Reporters"));
+            Assert.That(executionsDocument.Content, Does.Contain("### `UpdateReporters`"));
+            Assert.That(executionsDocument.Content, Does.Not.Contain("## Collection helpers"));
+        });
+    }
+
+    [Test]
+    public void Render_WhenReporterSavesTemplate_GroupsUnderReportingAndArtifacts()
+    {
+        var catalog = new FunctionCatalog(
+        [
+            new FunctionEntry(
+                Product: "Runner",
+                Group: "Configuration as Code",
+                Subgroup: "Reporters",
+                Kind: "function",
+                DisplayName: "ReporterBuilder.ShouldSaveTemplate(bool shouldSaveTemplate)",
+                ShortName: "ShouldSaveTemplate",
+                OverloadName: "ShouldSaveTemplate",
+                Signature: "public ReporterBuilder ShouldSaveTemplate(bool shouldSaveTemplate)",
+                Summary: "Controls whether templates are saved.",
+                Remarks: string.Empty,
+                RelativePath: "QaaS.Runner.Assertions/ConfigurationObjects/ReporterBuilder.cs",
+                LineNumber: 134,
+                DeclaringType: "ReporterBuilder",
+                IsExtensionMethod: false,
+                HasExplicitPlacement: true),
+            new FunctionEntry(
+                Product: "Runner",
+                Group: "Configuration as Code",
+                Subgroup: "Reporters",
+                Kind: "function",
+                DisplayName: "ReporterBuilder.ConfigureReportPortal(ReportPortalConfig reportPortalConfig)",
+                ShortName: "ConfigureReportPortal",
+                OverloadName: "ConfigureReportPortal",
+                Signature: "public ReporterBuilder ConfigureReportPortal(ReportPortalConfig reportPortalConfig)",
+                Summary: "Sets the ReportPortal configuration.",
+                Remarks: string.Empty,
+                RelativePath: "QaaS.Runner.Assertions/ConfigurationObjects/ReporterBuilder.cs",
+                LineNumber: 160,
+                DeclaringType: "ReporterBuilder",
+                IsExtensionMethod: false,
+                HasExplicitPlacement: true)
+        ]);
+
+        var documents = new FunctionReferenceRenderer().Render(catalog);
+        var reportersDocument = documents.Single(document =>
+            document.RelativePath == "qaas/functions/builders/reporters.md"
+        );
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reportersDocument.Content, Does.Contain("## Reporting and artifacts"));
+            Assert.That(reportersDocument.Content, Does.Contain("### `ShouldSaveTemplate`"));
+        });
+    }
+
     private static int CountOccurrences(string haystack, string needle)
     {
         var count = 0;
