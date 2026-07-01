@@ -55,7 +55,10 @@ internal sealed class ConfigurationReferenceRenderer
                 new GeneratedDocument(
                     $"{basePath}/configurations/tableView.md",
                     GeneratedDocumentHasher.WithHeader(
-                        RenderTableView(section, property),
+                        WithSchemaVerificationMarkers(
+                            familyDocs,
+                            RenderTableView(section, property)
+                        ),
                         [familyDocs.FamilyId, section.Id, "table-view"]
                     )
                 )
@@ -64,7 +67,10 @@ internal sealed class ConfigurationReferenceRenderer
                 new GeneratedDocument(
                     $"{basePath}/configurations/yamlView.md",
                     GeneratedDocumentHasher.WithHeader(
-                        RenderYamlView(section, property),
+                        WithSchemaVerificationMarkers(
+                            familyDocs,
+                            RenderYamlView(section, property)
+                        ),
                         [familyDocs.FamilyId, section.Id, "yaml-view"]
                     )
                 )
@@ -117,11 +123,14 @@ internal sealed class ConfigurationReferenceRenderer
                 new GeneratedDocument(
                     $"{basePath}-tableView.md",
                     GeneratedDocumentHasher.WithHeader(
-                        RenderTableView(
-                            $"{typeReference.Title} Configurations Table View",
-                            $"Sessions[].{typeReference.SchemaPropertyName}",
-                            property,
-                            $"{typeReference.DocsSlug}-yamlView.md"
+                        WithSchemaVerificationMarkers(
+                            familyDocs,
+                            RenderTableView(
+                                $"{typeReference.Title} Configurations Table View",
+                                $"Sessions[].{typeReference.SchemaPropertyName}",
+                                property,
+                                $"{typeReference.DocsSlug}-yamlView.md"
+                            )
                         ),
                         [
                             familyDocs.FamilyId,
@@ -136,11 +145,14 @@ internal sealed class ConfigurationReferenceRenderer
                 new GeneratedDocument(
                     $"{basePath}-yamlView.md",
                     GeneratedDocumentHasher.WithHeader(
-                        RenderYamlView(
-                            $"{typeReference.Title} Configurations Yaml View",
-                            typeReference.SchemaPropertyName,
-                            property,
-                            $"{typeReference.DocsSlug}-tableView.md"
+                        WithSchemaVerificationMarkers(
+                            familyDocs,
+                            RenderYamlView(
+                                $"{typeReference.Title} Configurations Yaml View",
+                                typeReference.SchemaPropertyName,
+                                property,
+                                $"{typeReference.DocsSlug}-tableView.md"
+                            )
                         ),
                         [
                             familyDocs.FamilyId,
@@ -154,6 +166,23 @@ internal sealed class ConfigurationReferenceRenderer
         }
 
         return documents;
+    }
+
+    private static string WithSchemaVerificationMarkers(
+        FamilySchemaDocs familyDocs,
+        string generatedContent
+    )
+    {
+        var familySchemaRoot = $"QaaS.PackageMirror\\schemas\\{familyDocs.FamilyId}\\latest";
+        return string.Join(
+            Environment.NewLine,
+            [
+                $"<!-- Verified-against: {familySchemaRoot}\\docs-manifest.json -->",
+                $"<!-- Verified-against: {familySchemaRoot}\\schema.json -->",
+                string.Empty,
+                generatedContent,
+            ]
+        );
     }
 
     private static string RenderTableView(SchemaSection section, JsonSchemaProperty property)
