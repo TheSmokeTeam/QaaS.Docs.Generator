@@ -607,9 +607,15 @@ internal sealed class ConfigurationReferenceRenderer
         )
         {
             return schema
-                .Properties.OrderBy(property => Category(property.Value.ActualSchema))
+                .Properties.Where(property => !IsAccidentalConfigurationAlias(property.Key))
+                .OrderBy(property => Category(property.Value.ActualSchema))
                 .ThenByDescending(property => schema.RequiredProperties.Contains(property.Key))
                 .ThenBy(property => property.Key, StringComparer.Ordinal);
+        }
+
+        private static bool IsAccidentalConfigurationAlias(string propertyName)
+        {
+            return string.Equals(propertyName, "Configuration", StringComparison.Ordinal);
         }
 
         private static int Category(JsonSchema schema)
