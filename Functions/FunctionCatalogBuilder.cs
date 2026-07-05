@@ -195,8 +195,7 @@ internal static class FunctionCatalogBuilder
             normalized.StartsWith(
                 "Use this method when working with the documented ",
                 StringComparison.Ordinal
-            )
-            && normalized.Contains(" API surface in code.", StringComparison.Ordinal)
+            ) && normalized.Contains(" API surface in code.", StringComparison.Ordinal)
         )
         {
             return string.Empty;

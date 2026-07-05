@@ -13,13 +13,15 @@ internal sealed class SyncSchemaAssetsCommand : ICommandHandler
         var sourceRoot = Path.Combine(context.MirrorRoot, "schemas");
         var destinationRoot = Path.Combine(context.DocsRoot, "docs", "assets", "schemas");
 
-        foreach (var obsoletePath in new[]
-                 {
-                     Path.Combine(destinationRoot, "index.json"),
-                     Path.Combine(destinationRoot, "runner-family"),
-                     Path.Combine(destinationRoot, "mocker-family"),
-                     Path.Combine(context.DocsRoot, "docs", "assets", "mirror-state")
-                 })
+        foreach (
+            var obsoletePath in new[]
+            {
+                Path.Combine(destinationRoot, "index.json"),
+                Path.Combine(destinationRoot, "runner-family"),
+                Path.Combine(destinationRoot, "mocker-family"),
+                Path.Combine(context.DocsRoot, "docs", "assets", "mirror-state"),
+            }
+        )
         {
             RemoveOrCheckObsoletePath(obsoletePath, check);
         }
@@ -27,35 +29,57 @@ internal sealed class SyncSchemaAssetsCommand : ICommandHandler
         await CopyOrCheckFileAsync(
             Path.Combine(sourceRoot, "runner-family", "latest", "schema.json"),
             Path.Combine(destinationRoot, "runner-family-schema.json"),
-            check);
+            check
+        );
         await CopyOrCheckFileAsync(
             Path.Combine(sourceRoot, "mocker-family", "latest", "schema.json"),
             Path.Combine(destinationRoot, "mocker-family-schema.json"),
-            check);
+            check
+        );
 
-        Console.WriteLine(check ? "Validated mirrored docs assets schema assets." : "Synced mirrored docs assets schema assets.");
+        Console.WriteLine(
+            check
+                ? "Validated mirrored docs assets schema assets."
+                : "Synced mirrored docs assets schema assets."
+        );
         return 0;
     }
 
-    private static async Task CopyOrCheckFileAsync(string sourcePath, string destinationPath, bool check)
+    private static async Task CopyOrCheckFileAsync(
+        string sourcePath,
+        string destinationPath,
+        bool check
+    )
     {
         if (!File.Exists(sourcePath))
         {
-            throw new FileNotFoundException($"Missing schema asset source file: {sourcePath}", sourcePath);
+            throw new FileNotFoundException(
+                $"Missing schema asset source file: {sourcePath}",
+                sourcePath
+            );
         }
 
         if (check)
         {
             if (!File.Exists(destinationPath))
             {
-                throw new FileNotFoundException($"Missing copied schema asset: {destinationPath}", destinationPath);
+                throw new FileNotFoundException(
+                    $"Missing copied schema asset: {destinationPath}",
+                    destinationPath
+                );
             }
 
-            var sourceContent = Utf8File.NormalizeLineEndings(await Utf8File.ReadAllTextAsync(sourcePath));
-            var destinationContent = Utf8File.NormalizeLineEndings(await Utf8File.ReadAllTextAsync(destinationPath));
+            var sourceContent = Utf8File.NormalizeLineEndings(
+                await Utf8File.ReadAllTextAsync(sourcePath)
+            );
+            var destinationContent = Utf8File.NormalizeLineEndings(
+                await Utf8File.ReadAllTextAsync(destinationPath)
+            );
             if (!string.Equals(sourceContent, destinationContent, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException($"Schema asset drift detected: {destinationPath}");
+                throw new InvalidOperationException(
+                    $"Schema asset drift detected: {destinationPath}"
+                );
             }
 
             return;
@@ -74,7 +98,9 @@ internal sealed class SyncSchemaAssetsCommand : ICommandHandler
 
         if (check)
         {
-            throw new InvalidOperationException($"Obsolete mirrored docs asset still exists: {path}");
+            throw new InvalidOperationException(
+                $"Obsolete mirrored docs asset still exists: {path}"
+            );
         }
 
         if (Directory.Exists(path))

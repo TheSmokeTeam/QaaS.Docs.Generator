@@ -200,10 +200,7 @@ public sealed class GeneratedDocumentWriterTests
         Assert.Multiple(() =>
         {
             Assert.That(CountOccurrences(content, marker), Is.EqualTo(1));
-            Assert.That(
-                content,
-                Does.Contain($"---\n\n{marker}\n\n# Transactions: Configuration")
-            );
+            Assert.That(content, Does.Contain($"---\n\n{marker}\n\n# Transactions: Configuration"));
             Assert.That(content, Does.Not.Contain("# Old"));
         });
     }

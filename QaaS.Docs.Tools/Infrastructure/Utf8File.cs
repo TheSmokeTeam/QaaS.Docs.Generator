@@ -17,8 +17,17 @@ internal static class Utf8File
     /// </summary>
     public static async Task<string> ReadAllTextAsync(string path)
     {
-        await using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var reader = new StreamReader(stream, Utf8NoBom, detectEncodingFromByteOrderMarks: true);
+        await using var stream = File.Open(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite
+        );
+        using var reader = new StreamReader(
+            stream,
+            Utf8NoBom,
+            detectEncodingFromByteOrderMarks: true
+        );
         return await reader.ReadToEndAsync();
     }
 
@@ -41,6 +50,8 @@ internal static class Utf8File
     /// </summary>
     public static string NormalizeLineEndings(string value)
     {
-        return value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\r", "\n", StringComparison.Ordinal);
+        return value
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace("\r", "\n", StringComparison.Ordinal);
     }
 }

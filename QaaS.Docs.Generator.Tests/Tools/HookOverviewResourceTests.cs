@@ -107,7 +107,10 @@ public class HookOverviewResourceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(content, Does.Contain("> TL;DR — Checks for delay between input and output."));
+            Assert.That(
+                content,
+                Does.Contain("> TL;DR — Checks for delay between input and output.")
+            );
             Assert.That(content, Does.Not.Contain("> TL;DR — ## When to use"));
         });
     }
@@ -178,10 +181,7 @@ public class HookOverviewResourceTests
             resourcesRoot
         );
 
-        await new UpdateHookOverviewsCommand().ExecuteAsync(
-            context,
-            CommandArguments.Parse([])
-        );
+        await new UpdateHookOverviewsCommand().ExecuteAsync(context, CommandArguments.Parse([]));
 
         var content = File.ReadAllText(overviewPath);
 
@@ -248,7 +248,15 @@ public class HookOverviewResourceTests
         await ProcessRunner.RunAsync("git", ["add", "."], docsRoot);
         await ProcessRunner.RunAsync(
             "git",
-            ["-c", "user.name=QaaS Docs Test", "-c", "user.email=qaas-docs@example.test", "commit", "-m", "seed"],
+            [
+                "-c",
+                "user.name=QaaS Docs Test",
+                "-c",
+                "user.email=qaas-docs@example.test",
+                "commit",
+                "-m",
+                "seed",
+            ],
             docsRoot
         );
 
@@ -272,10 +280,7 @@ public class HookOverviewResourceTests
 
         var context = CreateToolContext(docsRoot, tempRoot, resourcesRoot);
 
-        await new UpdateHookOverviewsCommand().ExecuteAsync(
-            context,
-            CommandArguments.Parse([])
-        );
+        await new UpdateHookOverviewsCommand().ExecuteAsync(context, CommandArguments.Parse([]));
 
         var content = File.ReadAllText(overviewPath);
 

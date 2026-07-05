@@ -5,7 +5,9 @@ namespace QaaS.Docs.Generator.Cli;
 
 internal static class TypeDisplayFormatter
 {
-    private static readonly Dictionary<string, string> PrimitiveAliases = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, string> PrimitiveAliases = new(
+        StringComparer.Ordinal
+    )
     {
         ["Boolean"] = "bool",
         ["Byte"] = "byte",
@@ -21,12 +23,13 @@ internal static class TypeDisplayFormatter
         ["String"] = "string",
         ["UInt16"] = "ushort",
         ["UInt32"] = "uint",
-        ["UInt64"] = "ulong"
+        ["UInt64"] = "ulong",
     };
 
     private static readonly Regex PascalCaseWordMatcher = new(
         "[A-Z]+(?=$|[A-Z][a-z]|\\d)|[A-Z]?[a-z]+|\\d+",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        RegexOptions.Compiled | RegexOptions.CultureInvariant
+    );
 
     public static string FormatSourceType(string rawType)
     {
@@ -130,7 +133,11 @@ internal static class TypeDisplayFormatter
         return true;
     }
 
-    private static bool TrySplitGenericType(string typeName, out string outerType, out IReadOnlyList<string> arguments)
+    private static bool TrySplitGenericType(
+        string typeName,
+        out string outerType,
+        out IReadOnlyList<string> arguments
+    )
     {
         var genericStart = typeName.IndexOf('<');
         if (genericStart < 0 || !typeName.EndsWith(">", StringComparison.Ordinal))
@@ -184,18 +191,18 @@ internal static class TypeDisplayFormatter
 
     private static bool IsCollectionType(string typeName)
     {
-        return string.Equals(typeName, "IList", StringComparison.Ordinal) ||
-               string.Equals(typeName, "IReadOnlyList", StringComparison.Ordinal) ||
-               string.Equals(typeName, "ICollection", StringComparison.Ordinal) ||
-               string.Equals(typeName, "IEnumerable", StringComparison.Ordinal) ||
-               string.Equals(typeName, "List", StringComparison.Ordinal);
+        return string.Equals(typeName, "IList", StringComparison.Ordinal)
+            || string.Equals(typeName, "IReadOnlyList", StringComparison.Ordinal)
+            || string.Equals(typeName, "ICollection", StringComparison.Ordinal)
+            || string.Equals(typeName, "IEnumerable", StringComparison.Ordinal)
+            || string.Equals(typeName, "List", StringComparison.Ordinal);
     }
 
     private static bool IsDictionaryType(string typeName)
     {
-        return string.Equals(typeName, "Dictionary", StringComparison.Ordinal) ||
-               string.Equals(typeName, "IDictionary", StringComparison.Ordinal) ||
-               string.Equals(typeName, "IReadOnlyDictionary", StringComparison.Ordinal);
+        return string.Equals(typeName, "Dictionary", StringComparison.Ordinal)
+            || string.Equals(typeName, "IDictionary", StringComparison.Ordinal)
+            || string.Equals(typeName, "IReadOnlyDictionary", StringComparison.Ordinal);
     }
 
     private static string HumanizePascalCase(string value)
@@ -208,7 +215,7 @@ internal static class TypeDisplayFormatter
 
         return string.Join(
             " ",
-            words.Select((word, index) =>
-                index == 0 ? word : word.ToLowerInvariant()));
+            words.Select((word, index) => index == 0 ? word : word.ToLowerInvariant())
+        );
     }
 }

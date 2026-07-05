@@ -27,13 +27,28 @@ internal static class Program
         {
             return commandName switch
             {
-                "generate-reference-docs" => await new GenerateReferenceDocsCommand().ExecuteAsync(context, commandArguments),
-                "refresh-cli-snapshots" => await new RefreshCliSnapshotsCommand().ExecuteAsync(context, commandArguments),
-                "sync-schema-assets" => await new SyncSchemaAssetsCommand().ExecuteAsync(context, commandArguments),
-                "update-hook-overviews" => await new UpdateHookOverviewsCommand().ExecuteAsync(context, commandArguments),
-                "validate-hook-examples" => await new ValidateHookExamplesCommand().ExecuteAsync(context, commandArguments),
+                "generate-reference-docs" => await new GenerateReferenceDocsCommand().ExecuteAsync(
+                    context,
+                    commandArguments
+                ),
+                "refresh-cli-snapshots" => await new RefreshCliSnapshotsCommand().ExecuteAsync(
+                    context,
+                    commandArguments
+                ),
+                "sync-schema-assets" => await new SyncSchemaAssetsCommand().ExecuteAsync(
+                    context,
+                    commandArguments
+                ),
+                "update-hook-overviews" => await new UpdateHookOverviewsCommand().ExecuteAsync(
+                    context,
+                    commandArguments
+                ),
+                "validate-hook-examples" => await new ValidateHookExamplesCommand().ExecuteAsync(
+                    context,
+                    commandArguments
+                ),
                 "--help" or "-h" or "help" => PrintHelp(commandArguments),
-                _ => PrintUnknownCommand(commandName)
+                _ => PrintUnknownCommand(commandName),
             };
         }
         catch (Exception exception)
@@ -73,14 +88,26 @@ internal static class Program
     /// </summary>
     private static void PrintUsage()
     {
-        Console.WriteLine("Usage: dotnet run --project tools/QaaS.Docs.Generator/QaaS.Docs.Tools/QaaS.Docs.Tools.csproj -- <command> [options]");
+        Console.WriteLine(
+            "Usage: dotnet run --project tools/QaaS.Docs.Generator/QaaS.Docs.Tools/QaaS.Docs.Tools.csproj -- <command> [options]"
+        );
         Console.WriteLine();
         Console.WriteLine("Commands:");
-        Console.WriteLine("  generate-reference-docs  Regenerate or validate the full deterministic docs tree.");
-        Console.WriteLine("  refresh-cli-snapshots    Rebuild the committed Runner and Mocker CLI snapshot files.");
-        Console.WriteLine("  sync-schema-assets       Mirror stable schema download assets into docs/assets.");
-        Console.WriteLine("  update-hook-overviews    Enrich hook overview pages with What It Does and YAML sections.");
-        Console.WriteLine("  validate-hook-examples   Build local hosts and template every documented hook example.");
+        Console.WriteLine(
+            "  generate-reference-docs  Regenerate or validate the full deterministic docs tree."
+        );
+        Console.WriteLine(
+            "  refresh-cli-snapshots    Rebuild the committed Runner and Mocker CLI snapshot files."
+        );
+        Console.WriteLine(
+            "  sync-schema-assets       Mirror stable schema download assets into docs/assets."
+        );
+        Console.WriteLine(
+            "  update-hook-overviews    Enrich hook overview pages with What It Does and YAML sections."
+        );
+        Console.WriteLine(
+            "  validate-hook-examples   Build local hosts and template every documented hook example."
+        );
         Console.WriteLine();
         Console.WriteLine("Use 'help --command <name>' to print per-command options.");
     }
@@ -101,8 +128,9 @@ internal static class Program
                 "  --assertions-root <path>",
                 "  --generators-root <path>",
                 "  --probes-root <path>",
-                "  --processors-root <path>"
-            ]);
+                "  --processors-root <path>",
+            ]
+        );
 
         switch (commandName)
         {
@@ -115,33 +143,32 @@ internal static class Program
                 return;
             case "refresh-cli-snapshots":
                 Console.WriteLine("refresh-cli-snapshots");
-                Console.WriteLine(string.Join(
-                    Environment.NewLine,
-                    [
-                        "  --docs-root <path>",
-                        "  --runner-root <path>",
-                        "  --mocker-root <path>",
-                        "  --framework-root <path>"
-                    ]));
+                Console.WriteLine(
+                    string.Join(
+                        Environment.NewLine,
+                        [
+                            "  --docs-root <path>",
+                            "  --runner-root <path>",
+                            "  --mocker-root <path>",
+                            "  --framework-root <path>",
+                        ]
+                    )
+                );
                 return;
             case "sync-schema-assets":
                 Console.WriteLine("sync-schema-assets");
-                Console.WriteLine(string.Join(
-                    Environment.NewLine,
-                    [
-                        "  --docs-root <path>",
-                        "  --mirror-root <path>",
-                        "  --check"
-                    ]));
+                Console.WriteLine(
+                    string.Join(
+                        Environment.NewLine,
+                        ["  --docs-root <path>", "  --mirror-root <path>", "  --check"]
+                    )
+                );
                 return;
             case "update-hook-overviews":
                 Console.WriteLine("update-hook-overviews");
-                Console.WriteLine(string.Join(
-                    Environment.NewLine,
-                    [
-                        "  --docs-root <path>",
-                        "  --check"
-                    ]));
+                Console.WriteLine(
+                    string.Join(Environment.NewLine, ["  --docs-root <path>", "  --check"])
+                );
                 return;
             case "validate-hook-examples":
                 Console.WriteLine("validate-hook-examples");

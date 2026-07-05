@@ -4,15 +4,23 @@ namespace QaaS.Docs.Generator.Cli;
 
 internal sealed record RunnerCliCatalog(
     string OverviewHelpText,
-    IReadOnlyList<RunnerCliCommand> Commands)
+    IReadOnlyList<RunnerCliCommand> Commands
+)
 {
     public static async Task<RunnerCliCatalog> LoadAsync(string path)
     {
         await using var stream = File.OpenRead(path);
-        var catalog = await JsonSerializer.DeserializeAsync<RunnerCliCatalog>(stream, JsonDefaults.Options);
+        var catalog = await JsonSerializer.DeserializeAsync<RunnerCliCatalog>(
+            stream,
+            JsonDefaults.Options
+        );
         return CliCatalogValidator.Validate(
-            catalog ?? throw new InvalidOperationException($"Could not deserialize Runner CLI catalog from {path}."),
-            path);
+            catalog
+                ?? throw new InvalidOperationException(
+                    $"Could not deserialize Runner CLI catalog from {path}."
+                ),
+            path
+        );
     }
 }
 
@@ -22,7 +30,8 @@ internal sealed record RunnerCliCommand(
     string OptionType,
     string HelpText,
     IReadOnlyList<RunnerCliArgument> Positionals,
-    IReadOnlyList<RunnerCliArgument> Options);
+    IReadOnlyList<RunnerCliArgument> Options
+);
 
 internal sealed record RunnerCliArgument(
     string Kind,
@@ -35,20 +44,29 @@ internal sealed record RunnerCliArgument(
     string? ShortName,
     string? LongName,
     int? Position,
-    string? HelpText);
+    string? HelpText
+);
 
 internal sealed record MockerCliCatalog(
     DateTimeOffset GeneratedAtUtc,
     string OverviewHelpText,
-    IReadOnlyList<MockerCliCommand> Commands)
+    IReadOnlyList<MockerCliCommand> Commands
+)
 {
     public static async Task<MockerCliCatalog> LoadAsync(string path)
     {
         await using var stream = File.OpenRead(path);
-        var catalog = await JsonSerializer.DeserializeAsync<MockerCliCatalog>(stream, JsonDefaults.Options);
+        var catalog = await JsonSerializer.DeserializeAsync<MockerCliCatalog>(
+            stream,
+            JsonDefaults.Options
+        );
         return CliCatalogValidator.Validate(
-            catalog ?? throw new InvalidOperationException($"Could not deserialize Mocker CLI catalog from {path}."),
-            path);
+            catalog
+                ?? throw new InvalidOperationException(
+                    $"Could not deserialize Mocker CLI catalog from {path}."
+                ),
+            path
+        );
     }
 }
 
@@ -58,7 +76,8 @@ internal sealed record MockerCliCommand(
     string HelpText,
     string SourceOptionType,
     IReadOnlyList<MockerCliValue> Positionals,
-    IReadOnlyList<MockerCliOption> Options);
+    IReadOnlyList<MockerCliOption> Options
+);
 
 internal sealed record MockerCliValue(
     int Index,
@@ -68,7 +87,8 @@ internal sealed record MockerCliValue(
     string? DefaultValue,
     string HelpText,
     string SourceOptionType,
-    bool IsInherited);
+    bool IsInherited
+);
 
 internal sealed record MockerCliOption(
     string PropertyName,
@@ -79,12 +99,13 @@ internal sealed record MockerCliOption(
     string? DefaultValue,
     string HelpText,
     string SourceOptionType,
-    bool IsInherited);
+    bool IsInherited
+);
 
 internal static class JsonDefaults
 {
     public static readonly JsonSerializerOptions Options = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
     };
 }

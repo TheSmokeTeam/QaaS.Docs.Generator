@@ -1,0 +1,4 @@
+# Snapshot-host templates: copied verbatim into generated snapshot projects.
+# Reformatting would change emitted bytes and break snapshot drift checks.
+Resources/
+**/Resources/*.cs

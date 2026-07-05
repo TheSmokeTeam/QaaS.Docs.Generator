@@ -33,9 +33,14 @@ public class FunctionReferenceRendererTests
                     /// <qaas-docs group="Builders" subgroup="Sessions" />
                     public SessionBuilder Named(string name) => this;
                 }
-                """);
+                """
+            );
 
-            var catalog = await FunctionCatalogBuilder.BuildAsync(runnerRoot, mockerRoot, frameworkRoot);
+            var catalog = await FunctionCatalogBuilder.BuildAsync(
+                runnerRoot,
+                mockerRoot,
+                frameworkRoot
+            );
 
             Assert.That(catalog.Entries.Single().Remarks, Is.Empty);
         }
@@ -51,8 +56,7 @@ public class FunctionReferenceRendererTests
     [Test]
     public void Render_WhenOverviewIsGenerated_UsesAvailableFunctionsSection()
     {
-        var catalog = new FunctionCatalog(
-        [
+        var catalog = new FunctionCatalog([
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Builders",
@@ -68,7 +72,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 10,
                 DeclaringType: "AssertionBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true),
+                HasExplicitPlacement: true
+            ),
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Extension Methods",
@@ -84,19 +89,28 @@ public class FunctionReferenceRendererTests
                 LineNumber: 20,
                 DeclaringType: "SessionExtensions",
                 IsExtensionMethod: true,
-                HasExplicitPlacement: false)
+                HasExplicitPlacement: false
+            ),
         ]);
 
         var documents = new FunctionReferenceRenderer().Render(catalog);
-        var overviewDocument = documents.Single(document => document.RelativePath == "qaas/functions/index.md");
+        var overviewDocument = documents.Single(document =>
+            document.RelativePath == "qaas/functions/index.md"
+        );
 
         Assert.Multiple(() =>
         {
             Assert.That(overviewDocument.Content, Does.Contain("## Available Functions"));
             Assert.That(overviewDocument.Content, Does.Contain("### Builders"));
             Assert.That(overviewDocument.Content, Does.Contain("### Extension Methods"));
-            Assert.That(overviewDocument.Content, Does.Contain("- [Assertions](builders/assertions.md)"));
-            Assert.That(overviewDocument.Content, Does.Contain("- [Extension Methods](extension-methods.md)"));
+            Assert.That(
+                overviewDocument.Content,
+                Does.Contain("- [Assertions](builders/assertions.md)")
+            );
+            Assert.That(
+                overviewDocument.Content,
+                Does.Contain("- [Extension Methods](extension-methods.md)")
+            );
         });
     }
 

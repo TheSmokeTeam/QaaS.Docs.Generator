@@ -28,7 +28,11 @@ public class HookReferenceRendererTests
             }
             """;
 
-        var documentation = HookReferenceRenderer.ParseHookDocumentation(source, "EmptyRedisByChunks.cs", "EmptyRedisByChunks");
+        var documentation = HookReferenceRenderer.ParseHookDocumentation(
+            source,
+            "EmptyRedisByChunks.cs",
+            "EmptyRedisByChunks"
+        );
 
         Assert.Multiple(() =>
         {
@@ -45,7 +49,8 @@ public class HookReferenceRendererTests
         var content = HookReferenceRenderer.RenderOverviewPage(
             title: "HookName",
             summary: "Hook summary.",
-            customOverviewContent: "## More\n\nDetails.");
+            customOverviewContent: "## More\n\nDetails."
+        );
 
         Assert.Multiple(() =>
         {

@@ -9,7 +9,7 @@ internal static class CliCatalogValidator
         "PublicKeyToken=",
         "[[",
         "]]",
-        "`"
+        "`",
     ];
 
     public static RunnerCliCatalog Validate(RunnerCliCatalog catalog, string path)
@@ -43,21 +43,44 @@ internal static class CliCatalogValidator
 
         foreach (var positional in command.Positionals)
         {
-            ValidateFriendlyTypeName(positional.SourceOptionType, $"{path}:{command.Name}:{positional.PropertyName} source type");
-            ValidateFriendlyTypeName(positional.ValueType, $"{path}:{command.Name}:{positional.PropertyName} value type");
-            ValidateOptionalInlineText(positional.HelpText, $"{path}:{command.Name}:{positional.PropertyName} help");
+            ValidateFriendlyTypeName(
+                positional.SourceOptionType,
+                $"{path}:{command.Name}:{positional.PropertyName} source type"
+            );
+            ValidateFriendlyTypeName(
+                positional.ValueType,
+                $"{path}:{command.Name}:{positional.PropertyName} value type"
+            );
+            ValidateOptionalInlineText(
+                positional.HelpText,
+                $"{path}:{command.Name}:{positional.PropertyName} help"
+            );
         }
 
         foreach (var option in command.Options)
         {
-            ValidateFriendlyTypeName(option.SourceOptionType, $"{path}:{command.Name}:{option.PropertyName} source type");
-            ValidateFriendlyTypeName(option.ValueType, $"{path}:{command.Name}:{option.PropertyName} value type");
-            ValidateOptionalInlineText(option.HelpText, $"{path}:{command.Name}:{option.PropertyName} help");
-            ValidateShortName(option.ShortName, $"{path}:{command.Name}:{option.PropertyName} short name");
+            ValidateFriendlyTypeName(
+                option.SourceOptionType,
+                $"{path}:{command.Name}:{option.PropertyName} source type"
+            );
+            ValidateFriendlyTypeName(
+                option.ValueType,
+                $"{path}:{command.Name}:{option.PropertyName} value type"
+            );
+            ValidateOptionalInlineText(
+                option.HelpText,
+                $"{path}:{command.Name}:{option.PropertyName} help"
+            );
+            ValidateShortName(
+                option.ShortName,
+                $"{path}:{command.Name}:{option.PropertyName} short name"
+            );
 
             if (string.IsNullOrWhiteSpace(option.LongName))
             {
-                throw new InvalidOperationException($"{path}:{command.Name}:{option.PropertyName} is missing a long flag name.");
+                throw new InvalidOperationException(
+                    $"{path}:{command.Name}:{option.PropertyName} is missing a long flag name."
+                );
             }
         }
     }
@@ -69,21 +92,44 @@ internal static class CliCatalogValidator
 
         foreach (var positional in command.Positionals)
         {
-            ValidateFriendlyTypeName(positional.SourceOptionType, $"{path}:{command.Name}:{positional.PropertyName} source type");
-            ValidateFriendlyTypeName(positional.ValueType, $"{path}:{command.Name}:{positional.PropertyName} value type");
-            ValidateInlineText(positional.HelpText, $"{path}:{command.Name}:{positional.PropertyName} help");
+            ValidateFriendlyTypeName(
+                positional.SourceOptionType,
+                $"{path}:{command.Name}:{positional.PropertyName} source type"
+            );
+            ValidateFriendlyTypeName(
+                positional.ValueType,
+                $"{path}:{command.Name}:{positional.PropertyName} value type"
+            );
+            ValidateInlineText(
+                positional.HelpText,
+                $"{path}:{command.Name}:{positional.PropertyName} help"
+            );
         }
 
         foreach (var option in command.Options)
         {
-            ValidateFriendlyTypeName(option.SourceOptionType, $"{path}:{command.Name}:{option.PropertyName} source type");
-            ValidateFriendlyTypeName(option.ValueType, $"{path}:{command.Name}:{option.PropertyName} value type");
-            ValidateInlineText(option.HelpText, $"{path}:{command.Name}:{option.PropertyName} help");
-            ValidateShortName(option.ShortName, $"{path}:{command.Name}:{option.PropertyName} short name");
+            ValidateFriendlyTypeName(
+                option.SourceOptionType,
+                $"{path}:{command.Name}:{option.PropertyName} source type"
+            );
+            ValidateFriendlyTypeName(
+                option.ValueType,
+                $"{path}:{command.Name}:{option.PropertyName} value type"
+            );
+            ValidateInlineText(
+                option.HelpText,
+                $"{path}:{command.Name}:{option.PropertyName} help"
+            );
+            ValidateShortName(
+                option.ShortName,
+                $"{path}:{command.Name}:{option.PropertyName} short name"
+            );
 
             if (string.IsNullOrWhiteSpace(option.LongName))
             {
-                throw new InvalidOperationException($"{path}:{command.Name}:{option.PropertyName} is missing a long flag name.");
+                throw new InvalidOperationException(
+                    $"{path}:{command.Name}:{option.PropertyName} is missing a long flag name."
+                );
             }
         }
     }
@@ -95,7 +141,11 @@ internal static class CliCatalogValidator
             throw new InvalidOperationException($"{context} is empty.");
         }
 
-        if (DisallowedTypeFragments.Any(fragment => valueType.Contains(fragment, StringComparison.Ordinal)))
+        if (
+            DisallowedTypeFragments.Any(fragment =>
+                valueType.Contains(fragment, StringComparison.Ordinal)
+            )
+        )
         {
             throw new InvalidOperationException($"{context} is not human-readable: `{valueType}`.");
         }
@@ -110,13 +160,19 @@ internal static class CliCatalogValidator
 
         if (value != value.Trim())
         {
-            throw new InvalidOperationException($"{context} contains leading or trailing whitespace.");
+            throw new InvalidOperationException(
+                $"{context} contains leading or trailing whitespace."
+            );
         }
 
-        if (value.Contains("SnapshotHost", StringComparison.Ordinal) ||
-            value.Contains("CliExport", StringComparison.Ordinal))
+        if (
+            value.Contains("SnapshotHost", StringComparison.Ordinal)
+            || value.Contains("CliExport", StringComparison.Ordinal)
+        )
         {
-            throw new InvalidOperationException($"{context} still contains temporary host banner text.");
+            throw new InvalidOperationException(
+                $"{context} still contains temporary host banner text."
+            );
         }
     }
 
@@ -139,7 +195,9 @@ internal static class CliCatalogValidator
 
         if (value != value.Trim())
         {
-            throw new InvalidOperationException($"{context} contains leading or trailing whitespace.");
+            throw new InvalidOperationException(
+                $"{context} contains leading or trailing whitespace."
+            );
         }
 
         if (value.EndsWith("\"", StringComparison.Ordinal))
@@ -147,8 +205,10 @@ internal static class CliCatalogValidator
             throw new InvalidOperationException($"{context} ends with a stray quote.");
         }
 
-        if (value.Contains("SnapshotHost", StringComparison.Ordinal) ||
-            value.Contains("CliExport", StringComparison.Ordinal))
+        if (
+            value.Contains("SnapshotHost", StringComparison.Ordinal)
+            || value.Contains("CliExport", StringComparison.Ordinal)
+        )
         {
             throw new InvalidOperationException($"{context} contains temporary host banner text.");
         }
@@ -163,7 +223,9 @@ internal static class CliCatalogValidator
 
         if (shortName.Length != 1)
         {
-            throw new InvalidOperationException($"{context} must be a single character when present.");
+            throw new InvalidOperationException(
+                $"{context} must be a single character when present."
+            );
         }
     }
 }

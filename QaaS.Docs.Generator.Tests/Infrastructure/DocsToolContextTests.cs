@@ -1,5 +1,5 @@
-using QaaS.Docs.Tools.Infrastructure;
 using NUnit.Framework;
+using QaaS.Docs.Tools.Infrastructure;
 
 namespace QaaS.Docs.Generator.Tests.Infrastructure;
 
@@ -15,11 +15,15 @@ public sealed class DocsToolContextTests
         var context = DocsToolContext.Create(CommandArguments.Parse(["--docs-root", docsRoot]));
 
         Assert.That(context.DocsRoot, Is.EqualTo(Path.GetFullPath(docsRoot)));
-        Assert.That(context.ResourcesRoot, Does.Not.Contain(Path.Combine("tools", "QaaS.Docs.Tools", "Resources")));
+        Assert.That(
+            context.ResourcesRoot,
+            Does.Not.Contain(Path.Combine("tools", "QaaS.Docs.Tools", "Resources"))
+        );
         Assert.That(
             File.Exists(Path.Combine(context.ResourcesRoot, "hook-overviews.json")),
             Is.True,
-            "The relocated docs tool resources should be discoverable from the compiled tool output.");
+            "The relocated docs tool resources should be discoverable from the compiled tool output."
+        );
     }
 
     private static string FindGeneratorRepositoryRoot()
@@ -35,6 +39,8 @@ public sealed class DocsToolContextTests
             current = current.Parent;
         }
 
-        throw new DirectoryNotFoundException("Could not locate the QaaS.Docs.Generator repository root.");
+        throw new DirectoryNotFoundException(
+            "Could not locate the QaaS.Docs.Generator repository root."
+        );
     }
 }
