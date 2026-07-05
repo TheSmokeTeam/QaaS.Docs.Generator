@@ -81,18 +81,25 @@ public class FunctionReferenceRendererTests
                     /// <qaas-docs group="Extension Methods" subgroup="Data" />
                     public static TBody GetBodyAs<TBody>(object body) => default!;
                 }
-                """);
+                """
+            );
 
-            var catalog = await FunctionCatalogBuilder.BuildAsync(runnerRoot, mockerRoot, frameworkRoot);
+            var catalog = await FunctionCatalogBuilder.BuildAsync(
+                runnerRoot,
+                mockerRoot,
+                frameworkRoot
+            );
 
             Assert.Multiple(() =>
             {
                 Assert.That(
                     catalog.Entries.Single().Summary,
-                    Is.EqualTo("Converts the body into TBody and returns it (see ConvertBodyTo)."));
+                    Is.EqualTo("Converts the body into TBody and returns it (see ConvertBodyTo).")
+                );
                 Assert.That(
                     catalog.Entries.Single().Remarks,
-                    Is.EqualTo("Example: `if (data.TryGetBodyAs<string>(out var text)) { ... }`"));
+                    Is.EqualTo("Example: `if (data.TryGetBodyAs<string>(out var text)) { ... }`")
+                );
             });
         }
         finally
@@ -168,8 +175,7 @@ public class FunctionReferenceRendererTests
     [Test]
     public void Render_WhenFunctionPageIsGenerated_EmitsDistinctVerificationMarkers()
     {
-        var catalog = new FunctionCatalog(
-        [
+        var catalog = new FunctionCatalog([
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -185,7 +191,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 108,
                 DeclaringType: "ReporterBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true),
+                HasExplicitPlacement: true
+            ),
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -201,7 +208,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 121,
                 DeclaringType: "ReporterBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true)
+                HasExplicitPlacement: true
+            ),
         ]);
 
         var documents = new FunctionReferenceRenderer().Render(catalog);
@@ -221,8 +229,7 @@ public class FunctionReferenceRendererTests
     [Test]
     public void Render_WhenExecutionUpdatesReporters_GroupsUnderReportersSection()
     {
-        var catalog = new FunctionCatalog(
-        [
+        var catalog = new FunctionCatalog([
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -238,7 +245,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 618,
                 DeclaringType: "ExecutionBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true),
+                HasExplicitPlacement: true
+            ),
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -254,7 +262,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 605,
                 DeclaringType: "ExecutionBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true)
+                HasExplicitPlacement: true
+            ),
         ]);
 
         var documents = new FunctionReferenceRenderer().Render(catalog);
@@ -273,8 +282,7 @@ public class FunctionReferenceRendererTests
     [Test]
     public void Render_WhenReporterSavesTemplate_GroupsUnderReportingAndArtifacts()
     {
-        var catalog = new FunctionCatalog(
-        [
+        var catalog = new FunctionCatalog([
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -290,7 +298,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 134,
                 DeclaringType: "ReporterBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true),
+                HasExplicitPlacement: true
+            ),
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -306,7 +315,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 160,
                 DeclaringType: "ReporterBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true)
+                HasExplicitPlacement: true
+            ),
         ]);
 
         var documents = new FunctionReferenceRenderer().Render(catalog);
