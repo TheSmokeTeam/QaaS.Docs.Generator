@@ -113,6 +113,10 @@ public sealed class ConfigurationReferenceRendererTests
             document.RelativePath
             == "qaas/userInterfaces/runner/configurationSections/links/configurations/yamlView.md"
         );
+        var tableDocument = documents.Single(document =>
+            document.RelativePath
+            == "qaas/userInterfaces/runner/configurationSections/links/configurations/tableView.md"
+        );
 
         var normalizedContent = yamlDocument.Content.Replace(
             "\r\n",
@@ -122,7 +126,8 @@ public sealed class ConfigurationReferenceRendererTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(normalizedContent, Does.Contain("Configuration: {}"));
+            Assert.That(normalizedContent, Does.Not.Contain("Configuration: {}"));
+            Assert.That(tableDocument.Content, Does.Not.Contain("Links[].Configuration"));
             Assert.That(normalizedContent, Does.Contain("Port: 0"));
             Assert.That(normalizedContent, Does.Contain("Expressions:\n      - 'value'"));
         });
