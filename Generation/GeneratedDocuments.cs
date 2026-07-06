@@ -330,7 +330,9 @@ internal static class MarkdownVerificationMarkers
         markers = markers.Distinct(StringComparer.Ordinal).ToList();
 
         var body = Remove(normalizedContent);
-        return markers.Count == 0 ? body : InsertAfterFrontmatter(body, markers, keepFrontmatterGap);
+        return markers.Count == 0
+            ? body
+            : InsertAfterFrontmatter(body, markers, keepFrontmatterGap);
     }
 
     public static string Remove(string content)
@@ -447,10 +449,7 @@ internal static class MarkdownVerificationMarkers
                 var lines = keepFrontmatterGap
                     ? new[] { frontmatter, string.Empty, markerBlock, string.Empty, body }
                     : new[] { frontmatter, markerBlock, string.Empty, body };
-                return string.Join(
-                    GeneratedDocumentLineEndings.Canonical,
-                    lines
-                );
+                return string.Join(GeneratedDocumentLineEndings.Canonical, lines);
             }
         }
 

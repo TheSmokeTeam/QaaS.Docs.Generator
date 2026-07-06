@@ -16,7 +16,8 @@ internal static class ProcessRunner
         IReadOnlyList<string> arguments,
         string workingDirectory,
         IReadOnlyDictionary<string, string?>? environmentVariables = null,
-        bool throwOnFailure = true)
+        bool throwOnFailure = true
+    )
     {
         var startInfo = new ProcessStartInfo
         {
@@ -24,7 +25,7 @@ internal static class ProcessRunner
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            UseShellExecute = false
+            UseShellExecute = false,
         };
 
         foreach (var argument in arguments)
@@ -40,7 +41,8 @@ internal static class ProcessRunner
             }
         }
 
-        using var process = Process.Start(startInfo)
+        using var process =
+            Process.Start(startInfo)
             ?? throw new InvalidOperationException($"Failed to start process '{fileName}'.");
 
         var standardOutputTask = process.StandardOutput.ReadToEndAsync();
@@ -51,7 +53,8 @@ internal static class ProcessRunner
             process.ExitCode,
             await standardOutputTask,
             await standardErrorTask,
-            $"{fileName} {string.Join(" ", arguments.Select(EscapeArgument))}".Trim());
+            $"{fileName} {string.Join(" ", arguments.Select(EscapeArgument))}".Trim()
+        );
 
         if (throwOnFailure && result.ExitCode != 0)
         {
@@ -66,16 +69,19 @@ internal static class ProcessRunner
     /// </summary>
     private static string EscapeArgument(string argument)
     {
-        return argument.Contains(' ', StringComparison.Ordinal)
-            ? $"\"{argument}\""
-            : argument;
+        return argument.Contains(' ', StringComparison.Ordinal) ? $"\"{argument}\"" : argument;
     }
 }
 
 /// <summary>
 /// Captures the outcome of an executed external process.
 /// </summary>
-internal sealed record ProcessResult(int ExitCode, string StandardOutput, string StandardError, string CommandText)
+internal sealed record ProcessResult(
+    int ExitCode,
+    string StandardOutput,
+    string StandardError,
+    string CommandText
+)
 {
     /// <summary>
     /// Formats the process result into a readable exception/error message.

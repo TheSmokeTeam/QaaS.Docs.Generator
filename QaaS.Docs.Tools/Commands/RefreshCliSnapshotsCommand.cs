@@ -13,7 +13,11 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
     {
         var toolRoot = Path.Combine(context.DocsRoot, "tools", "QaaS.Docs.Generator");
         var runnerProject = Path.Combine(context.RunnerRoot, "QaaS.Runner", "QaaS.Runner.csproj");
-        var runnerInfrastructureProject = Path.Combine(context.RunnerRoot, "QaaS.Runner.Infrastructure", "QaaS.Runner.Infrastructure.csproj");
+        var runnerInfrastructureProject = Path.Combine(
+            context.RunnerRoot,
+            "QaaS.Runner.Infrastructure",
+            "QaaS.Runner.Infrastructure.csproj"
+        );
         var mockerProject = Path.Combine(context.MockerRoot, "QaaS.Mocker", "QaaS.Mocker.csproj");
         var frameworkSolution = Path.Combine(context.FrameworkRoot, "QaaS.Framework.sln");
         var runnerSnapshotPath = Path.Combine(toolRoot, "Snapshots", "runner-cli.json");
@@ -24,19 +28,32 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
         EnsureExists(mockerProject, "Mocker project");
         EnsureExists(frameworkSolution, "Framework solution");
 
-        var runnerFrameworkVersion = GetPackageReferenceVersion(runnerInfrastructureProject, "QaaS.Framework.Executions");
-        var mockerFrameworkVersion = GetPackageReferenceVersion(mockerProject, "QaaS.Framework.Executions");
+        var runnerFrameworkVersion = GetPackageReferenceVersion(
+            runnerInfrastructureProject,
+            "QaaS.Framework.Executions"
+        );
+        var mockerFrameworkVersion = GetPackageReferenceVersion(
+            mockerProject,
+            "QaaS.Framework.Executions"
+        );
         if (string.IsNullOrWhiteSpace(runnerFrameworkVersion))
         {
-            throw new InvalidOperationException($"Could not resolve QaaS.Framework.Executions package version from {runnerInfrastructureProject}");
+            throw new InvalidOperationException(
+                $"Could not resolve QaaS.Framework.Executions package version from {runnerInfrastructureProject}"
+            );
         }
 
         if (string.IsNullOrWhiteSpace(mockerFrameworkVersion))
         {
-            throw new InvalidOperationException($"Could not resolve QaaS.Framework.Executions package version from {mockerProject}");
+            throw new InvalidOperationException(
+                $"Could not resolve QaaS.Framework.Executions package version from {mockerProject}"
+            );
         }
 
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"qaas-cli-snapshot-refresh-{Guid.NewGuid():N}");
+        var tempRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"qaas-cli-snapshot-refresh-{Guid.NewGuid():N}"
+        );
         Directory.CreateDirectory(tempRoot);
 
         try
@@ -58,9 +75,16 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
                     <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
                   </packageSources>
                 </configuration>
-                """);
+                """
+            );
 
-            foreach (var frameworkVersion in new[] { runnerFrameworkVersion, mockerFrameworkVersion }.Distinct(StringComparer.Ordinal))
+            foreach (
+                var frameworkVersion in new[]
+                {
+                    runnerFrameworkVersion,
+                    mockerFrameworkVersion,
+                }.Distinct(StringComparer.Ordinal)
+            )
             {
                 await ProcessRunner.RunAsync(
                     "dotnet",
@@ -72,9 +96,10 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
                         "-o",
                         frameworkFeedRoot,
                         $"-p:PackageVersion={frameworkVersion}",
-                        $"-p:Version={frameworkVersion}"
+                        $"-p:Version={frameworkVersion}",
                     ],
-                    context.FrameworkRoot);
+                    context.FrameworkRoot
+                );
             }
 
             await InvokeSnapshotHostAsync(
@@ -84,7 +109,8 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
                 restoreConfigPath,
                 restorePackagesRoot,
                 Path.Combine(context.ResourcesRoot, "RunnerSnapshotHost.cs"),
-                runnerSnapshotPath);
+                runnerSnapshotPath
+            );
             await InvokeSnapshotHostAsync(
                 tempRoot,
                 "mocker-host",
@@ -92,7 +118,8 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
                 restoreConfigPath,
                 restorePackagesRoot,
                 Path.Combine(context.ResourcesRoot, "MockerSnapshotHost.cs"),
-                mockerSnapshotPath);
+                mockerSnapshotPath
+            );
         }
         finally
         {
@@ -113,7 +140,8 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
         string restoreConfigPath,
         string restorePackagesPath,
         string programTemplatePath,
-        string outputPath)
+        string outputPath
+    )
     {
         var hostDirectory = Path.Combine(tempRoot, hostDirectoryName);
         Directory.CreateDirectory(hostDirectory);
@@ -122,7 +150,10 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
 
         var projectReferenceXml = string.Join(
             Environment.NewLine,
-            projectReferences.Select(reference => $"    <ProjectReference Include=\"{XmlEscape(reference)}\" />"));
+            projectReferences.Select(reference =>
+                $"    <ProjectReference Include=\"{XmlEscape(reference)}\" />"
+            )
+        );
         await Utf8File.WriteAllTextAsync(
             projectPath,
             $$"""
@@ -138,8 +169,12 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
             {{projectReferenceXml}}
               </ItemGroup>
             </Project>
-            """);
-        await Utf8File.WriteAllTextAsync(programPath, await Utf8File.ReadAllTextAsync(programTemplatePath));
+            """
+        );
+        await Utf8File.WriteAllTextAsync(
+            programPath,
+            await Utf8File.ReadAllTextAsync(programTemplatePath)
+        );
 
         await ProcessRunner.RunAsync(
             "dotnet",
@@ -149,9 +184,10 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
                 "--configfile",
                 restoreConfigPath,
                 "--packages",
-                restorePackagesPath
+                restorePackagesPath,
             ],
-            hostDirectory);
+            hostDirectory
+        );
         await ProcessRunner.RunAsync(
             "dotnet",
             [
@@ -163,9 +199,10 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
                 "--no-restore",
                 "--",
                 "--output",
-                outputPath
+                outputPath,
             ],
-            hostDirectory);
+            hostDirectory
+        );
     }
 
     private static string? GetPackageReferenceVersion(string projectPath, string packageId)
@@ -173,9 +210,15 @@ internal sealed class RefreshCliSnapshotsCommand : ICommandHandler
         var project = XDocument.Load(projectPath);
         return project
             .Descendants("PackageReference")
-            .FirstOrDefault(element => string.Equals((string?)element.Attribute("Include"), packageId, StringComparison.Ordinal))?
-            .Attribute("Version")?
-            .Value;
+            .FirstOrDefault(element =>
+                string.Equals(
+                    (string?)element.Attribute("Include"),
+                    packageId,
+                    StringComparison.Ordinal
+                )
+            )
+            ?.Attribute("Version")
+            ?.Value;
     }
 
     private static void EnsureExists(string path, string description)

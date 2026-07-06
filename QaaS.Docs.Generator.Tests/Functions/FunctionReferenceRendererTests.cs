@@ -33,9 +33,14 @@ public class FunctionReferenceRendererTests
                     /// <qaas-docs group="Builders" subgroup="Sessions" />
                     public SessionBuilder Named(string name) => this;
                 }
-                """);
+                """
+            );
 
-            var catalog = await FunctionCatalogBuilder.BuildAsync(runnerRoot, mockerRoot, frameworkRoot);
+            var catalog = await FunctionCatalogBuilder.BuildAsync(
+                runnerRoot,
+                mockerRoot,
+                frameworkRoot
+            );
 
             Assert.That(catalog.Entries.Single().Remarks, Is.Empty);
         }
@@ -49,10 +54,67 @@ public class FunctionReferenceRendererTests
     }
 
     [Test]
+    public async Task BuildAsync_SummaryWithParamrefAndTypeparamref_RendersTheReferencedNames()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var runnerRoot = Path.Combine(tempRoot, "runner");
+        var mockerRoot = Path.Combine(tempRoot, "mocker");
+        var frameworkRoot = Path.Combine(tempRoot, "framework");
+        Directory.CreateDirectory(runnerRoot);
+        Directory.CreateDirectory(mockerRoot);
+        Directory.CreateDirectory(frameworkRoot);
+
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(runnerRoot, "DataExtensions.cs"),
+                """
+                public static class DataExtensions
+                {
+                    /// <summary>
+                    /// Converts the <paramref name="body"/> into <typeparamref name="TBody"/> and returns it
+                    /// (see <see cref="ConvertBodyTo"/>).
+                    /// </summary>
+                    /// <remarks>
+                    /// Example: `if (data.TryGetBodyAs&lt;string&gt;(out var text)) { ... }`
+                    /// </remarks>
+                    /// <qaas-docs group="Extension Methods" subgroup="Data" />
+                    public static TBody GetBodyAs<TBody>(object body) => default!;
+                }
+                """
+            );
+
+            var catalog = await FunctionCatalogBuilder.BuildAsync(
+                runnerRoot,
+                mockerRoot,
+                frameworkRoot
+            );
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    catalog.Entries.Single().Summary,
+                    Is.EqualTo("Converts the body into TBody and returns it (see ConvertBodyTo).")
+                );
+                Assert.That(
+                    catalog.Entries.Single().Remarks,
+                    Is.EqualTo("Example: `if (data.TryGetBodyAs<string>(out var text)) { ... }`")
+                );
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Test]
     public void Render_WhenOverviewIsGenerated_UsesAvailableFunctionsSection()
     {
-        var catalog = new FunctionCatalog(
-        [
+        var catalog = new FunctionCatalog([
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Builders",
@@ -68,7 +130,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 10,
                 DeclaringType: "AssertionBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true),
+                HasExplicitPlacement: true
+            ),
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Extension Methods",
@@ -84,27 +147,35 @@ public class FunctionReferenceRendererTests
                 LineNumber: 20,
                 DeclaringType: "SessionExtensions",
                 IsExtensionMethod: true,
-                HasExplicitPlacement: false)
+                HasExplicitPlacement: false
+            ),
         ]);
 
         var documents = new FunctionReferenceRenderer().Render(catalog);
-        var overviewDocument = documents.Single(document => document.RelativePath == "qaas/functions/index.md");
+        var overviewDocument = documents.Single(document =>
+            document.RelativePath == "qaas/functions/index.md"
+        );
 
         Assert.Multiple(() =>
         {
             Assert.That(overviewDocument.Content, Does.Contain("## Available Functions"));
             Assert.That(overviewDocument.Content, Does.Contain("### Builders"));
             Assert.That(overviewDocument.Content, Does.Contain("### Extension Methods"));
-            Assert.That(overviewDocument.Content, Does.Contain("- [Assertions](builders/assertions.md)"));
-            Assert.That(overviewDocument.Content, Does.Contain("- [Extension Methods](extension-methods.md)"));
+            Assert.That(
+                overviewDocument.Content,
+                Does.Contain("- [Assertions](builders/assertions.md)")
+            );
+            Assert.That(
+                overviewDocument.Content,
+                Does.Contain("- [Extension Methods](extension-methods.md)")
+            );
         });
     }
 
     [Test]
     public void Render_WhenFunctionPageIsGenerated_EmitsDistinctVerificationMarkers()
     {
-        var catalog = new FunctionCatalog(
-        [
+        var catalog = new FunctionCatalog([
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -120,7 +191,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 108,
                 DeclaringType: "ReporterBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true),
+                HasExplicitPlacement: true
+            ),
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -136,7 +208,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 121,
                 DeclaringType: "ReporterBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true)
+                HasExplicitPlacement: true
+            ),
         ]);
 
         var documents = new FunctionReferenceRenderer().Render(catalog);
@@ -156,8 +229,7 @@ public class FunctionReferenceRendererTests
     [Test]
     public void Render_WhenExecutionUpdatesReporters_GroupsUnderReportersSection()
     {
-        var catalog = new FunctionCatalog(
-        [
+        var catalog = new FunctionCatalog([
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -173,7 +245,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 618,
                 DeclaringType: "ExecutionBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true),
+                HasExplicitPlacement: true
+            ),
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -189,7 +262,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 605,
                 DeclaringType: "ExecutionBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true)
+                HasExplicitPlacement: true
+            ),
         ]);
 
         var documents = new FunctionReferenceRenderer().Render(catalog);
@@ -208,8 +282,7 @@ public class FunctionReferenceRendererTests
     [Test]
     public void Render_WhenReporterSavesTemplate_GroupsUnderReportingAndArtifacts()
     {
-        var catalog = new FunctionCatalog(
-        [
+        var catalog = new FunctionCatalog([
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -225,7 +298,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 134,
                 DeclaringType: "ReporterBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true),
+                HasExplicitPlacement: true
+            ),
             new FunctionEntry(
                 Product: "Runner",
                 Group: "Configuration as Code",
@@ -241,7 +315,8 @@ public class FunctionReferenceRendererTests
                 LineNumber: 160,
                 DeclaringType: "ReporterBuilder",
                 IsExtensionMethod: false,
-                HasExplicitPlacement: true)
+                HasExplicitPlacement: true
+            ),
         ]);
 
         var documents = new FunctionReferenceRenderer().Render(catalog);

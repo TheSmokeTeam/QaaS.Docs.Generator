@@ -49,7 +49,8 @@ internal static class MarkdownHeadingAnchors
                 continue;
             }
 
-            var anchor = existingAnchors.TryTake(hashes, headingText, seenAnchors)
+            var anchor =
+                existingAnchors.TryTake(hashes, headingText, seenAnchors)
                 ?? CreateUniqueAnchor(Slugify(headingText), seenAnchors);
             lines[index] = $"{hashes} {headingText.TrimEnd()} {{: #{anchor}}}";
         }

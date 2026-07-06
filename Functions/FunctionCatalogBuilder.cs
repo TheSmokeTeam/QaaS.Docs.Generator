@@ -195,8 +195,7 @@ internal static class FunctionCatalogBuilder
             normalized.StartsWith(
                 "Use this method when working with the documented ",
                 StringComparison.Ordinal
-            )
-            && normalized.Contains(" API surface in code.", StringComparison.Ordinal)
+            ) && normalized.Contains(" API surface in code.", StringComparison.Ordinal)
         )
         {
             return string.Empty;
@@ -1145,7 +1144,24 @@ internal static class DocumentationCommentParser
             nodes.SelectMany(FlattenNode).Where(value => !string.IsNullOrWhiteSpace(value))
         );
 
-        return Regex.Replace(text, "\\s+", " ").Trim();
+        return TightenPunctuation(Regex.Replace(text, "\\s+", " ").Trim());
+    }
+
+    /// <summary>
+    /// Joining flattened nodes with spaces leaves stray gaps around punctuation when an inline element
+    /// (see/paramref/typeparamref) is followed by punctuation or preceded by an opening parenthesis.
+    /// Inline code spans (backticks) are left untouched
+    /// </summary>
+    private static string TightenPunctuation(string text)
+    {
+        var segments = text.Split('`');
+        for (var index = 0; index < segments.Length; index += 2)
+        {
+            segments[index] = Regex.Replace(segments[index], "\\s+(?=[,.;:!?)])", string.Empty);
+            segments[index] = Regex.Replace(segments[index], "(?<=\\()\\s+", string.Empty);
+        }
+
+        return string.Join('`', segments);
     }
 
     private static IEnumerable<string> FlattenNode(XNode node)
@@ -1179,7 +1195,7 @@ internal static class DocumentationCommentParser
                     yield break;
                 }
 
-                if (element.Name.LocalName == "paramref")
+                if (element.Name.LocalName is "paramref" or "typeparamref")
                 {
                     var name = (string?)element.Attribute("name");
                     if (!string.IsNullOrWhiteSpace(name))

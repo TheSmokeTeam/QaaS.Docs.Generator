@@ -34,8 +34,11 @@ internal sealed class HookOverviewCatalog
         }
 
         var json = await Utf8File.ReadAllTextAsync(path);
-        var entries = JsonSerializer.Deserialize<List<HookOverviewEntry>>(json)
-            ?? throw new InvalidOperationException($"Could not deserialize hook overview catalog from '{path}'.");
+        var entries =
+            JsonSerializer.Deserialize<List<HookOverviewEntry>>(json)
+            ?? throw new InvalidOperationException(
+                $"Could not deserialize hook overview catalog from '{path}'."
+            );
 
         return new HookOverviewCatalog(entries);
     }

@@ -6,7 +6,9 @@ namespace QaaS.Docs.Tools.Infrastructure;
 /// </summary>
 internal sealed class CommandArguments
 {
-    private readonly Dictionary<string, List<string>> _values = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<string>> _values = new(
+        StringComparer.OrdinalIgnoreCase
+    );
     private readonly HashSet<string> _flags = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
@@ -25,7 +27,10 @@ internal sealed class CommandArguments
                 continue;
             }
 
-            if (index + 1 < values.Length && !values[index + 1].StartsWith("--", StringComparison.Ordinal))
+            if (
+                index + 1 < values.Length
+                && !values[index + 1].StartsWith("--", StringComparison.Ordinal)
+            )
             {
                 if (!parsed._values.TryGetValue(current, out var entries))
                 {
@@ -68,9 +73,7 @@ internal sealed class CommandArguments
     /// </summary>
     public string? GetOptionalPath(string name)
     {
-        return TryGetSingleValue(name, out var value)
-            ? Path.GetFullPath(value)
-            : null;
+        return TryGetSingleValue(name, out var value) ? Path.GetFullPath(value) : null;
     }
 
     /// <summary>
@@ -78,8 +81,6 @@ internal sealed class CommandArguments
     /// </summary>
     public IReadOnlyList<string> GetValues(string name)
     {
-        return _values.TryGetValue(name, out var entries)
-            ? entries
-            : [];
+        return _values.TryGetValue(name, out var entries) ? entries : [];
     }
 }
