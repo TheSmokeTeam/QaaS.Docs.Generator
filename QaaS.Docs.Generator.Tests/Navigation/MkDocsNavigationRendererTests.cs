@@ -31,14 +31,7 @@ public sealed class MkDocsNavigationRendererTests
                 "Executions",
                 "builders/executions.md"
             );
-            WriteFunctionOverview(
-                docsRoot,
-                "framework/functions/index.md",
-                "Framework Functions",
-                "Functions",
-                "YAML",
-                "yaml.md"
-            );
+            WriteFrameworkFunctionOverview(docsRoot);
             WriteFunctionPage(
                 docsRoot,
                 "qaas/functions/builders/assertions.md",
@@ -57,9 +50,49 @@ public sealed class MkDocsNavigationRendererTests
                 "YAML",
                 "QaaS.Framework\\QaaS.Framework.Configurations\\ConfigurationBuilderExtensions\\YamlConfigurationBuilderExtension.cs"
             );
+            WriteExtensionMethodsPage(docsRoot);
             WriteHookIndexes(docsRoot);
 
             new MkDocsNavigationRenderer().Update(docsRoot, check: false);
+
+            var mkDocsContent = File.ReadAllText(Path.Combine(docsRoot, "mkdocs.yml"));
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    mkDocsContent,
+                    Does.Contain(
+                        "- General: qaas/functions/builders/assertions-sections/general.md"
+                    )
+                );
+                Assert.That(
+                    mkDocsContent,
+                    Does.Contain(
+                        "- General: mocker/functions/builders/executions-sections/general.md"
+                    )
+                );
+                Assert.That(
+                    mkDocsContent,
+                    Does.Contain("- General: framework/functions/yaml-sections/general.md")
+                );
+                Assert.That(
+                    mkDocsContent,
+                    Does.Contain(
+                        "- Deserializer: framework/functions/extension-methods-sections/extension-methods/deserializer.md"
+                    )
+                );
+                Assert.That(
+                    mkDocsContent,
+                    Does.Contain(
+                        "- Serialization type: framework/functions/extension-methods-sections/extension-methods/serialization-type.md"
+                    )
+                );
+                Assert.That(
+                    mkDocsContent,
+                    Does.Contain(
+                        "- Serializer: framework/functions/extension-methods-sections/extension-methods/serializer.md"
+                    )
+                );
+            });
 
             var sectionPage = File.ReadAllText(
                 Path.Combine(
@@ -168,6 +201,25 @@ public sealed class MkDocsNavigationRendererTests
         );
     }
 
+    private static void WriteFrameworkFunctionOverview(string docsRoot)
+    {
+        WriteDocsFile(
+            docsRoot,
+            "framework/functions/index.md",
+            """
+            # Framework Functions
+
+            ## Available Functions
+
+            ### Functions
+
+            - [YAML](yaml.md)
+            - [Extension Methods](extension-methods.md)
+
+            """
+        );
+    }
+
     private static void WriteFunctionPage(
         string docsRoot,
         string relativePath,
@@ -210,6 +262,51 @@ public sealed class MkDocsNavigationRendererTests
             ## See also
 
             - [Functions](../index.md)
+
+            """
+        );
+    }
+
+    private static void WriteExtensionMethodsPage(string docsRoot)
+    {
+        WriteDocsFile(
+            docsRoot,
+            "framework/functions/extension-methods.md",
+            """
+            ---
+            id: framework.functions.extension-methods
+            type: reference
+            status: stable
+            since: 1.6.0
+            last_verified: 2026-05-27
+            applies_to: [framework]
+            keywords: [qaas, framework, reference]
+            summary: "Reference page."
+            ---
+            <!-- Verified-against: QaaS.Framework\QaaS.Framework.Serialization\DeserializerFactory.cs -->
+            <!-- Verified-against: QaaS.Framework\QaaS.Framework.Serialization\SerializerFactory.cs -->
+
+            # Extension Methods
+
+            ## Extension Methods
+
+            ### Deserializer
+
+            #### `Deserialize`
+
+            Signature details.
+
+            ### Serialization type
+
+            #### `BuildSerializer`
+
+            Signature details.
+
+            ### Serializer
+
+            #### `SerializeToString`
+
+            Signature details.
 
             """
         );

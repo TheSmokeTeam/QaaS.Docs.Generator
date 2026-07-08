@@ -314,10 +314,13 @@ internal static class MarkdownVerificationMarkers
     public static string ApplyExisting(string fullPath, string generatedContent)
     {
         var normalizedContent = GeneratedDocumentLineEndings.Normalize(generatedContent);
-        var markers = new List<string>();
+        var generatedMarkers = ExtractMarkers(normalizedContent)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var markers = generatedMarkers.Count == 0 ? new List<string>() : generatedMarkers;
         var keepFrontmatterGap = HasFrontmatterGapBeforeMarker(normalizedContent);
 
-        if (File.Exists(fullPath))
+        if (File.Exists(fullPath) && generatedMarkers.Count == 0)
         {
             var existingContent = GeneratedDocumentLineEndings.Normalize(
                 File.ReadAllText(fullPath)
@@ -326,7 +329,6 @@ internal static class MarkdownVerificationMarkers
             markers.AddRange(ExtractMarkers(existingContent));
         }
 
-        markers.AddRange(ExtractMarkers(normalizedContent));
         markers = markers.Distinct(StringComparer.Ordinal).ToList();
 
         var body = Remove(normalizedContent);

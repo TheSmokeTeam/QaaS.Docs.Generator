@@ -157,6 +157,66 @@ public sealed class GeneratedDocumentWriterTests
     }
 
     [Test]
+    public void Write_WhenGeneratedBodyContainsVerificationMarkers_ReplacesStaleExistingMarkers()
+    {
+        var docsRoot = CreateTempDocsRoot();
+        var pagePath = Path.Combine(
+            docsRoot,
+            "docs",
+            "framework",
+            "functions",
+            "extension-methods.md"
+        );
+        Directory.CreateDirectory(Path.GetDirectoryName(pagePath)!);
+        File.WriteAllText(
+            pagePath,
+            """
+            ---
+            id: framework.functions.extension.methods
+            type: reference
+            ---
+            <!-- Verified-against: QaaS.Framework\QaaS.Framework.Serialization\SerializationExtensions.cs -->
+
+            # Old
+            """
+        );
+
+        GeneratedDocumentWriter
+            .Create(docsRoot)
+            .Write([
+                new GeneratedDocument(
+                    "framework/functions/extension-methods.md",
+                    """
+                    <!-- Verified-against: QaaS.Framework\QaaS.Framework.Serialization\SerializerFactory.cs -->
+
+                    # Extension Methods
+
+                    Generated body.
+                    """
+                ),
+            ]);
+
+        var content = File.ReadAllText(pagePath).Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                content,
+                Does.Contain(
+                    "<!-- Verified-against: QaaS.Framework\\QaaS.Framework.Serialization\\SerializerFactory.cs -->"
+                )
+            );
+            Assert.That(
+                content,
+                Does.Not.Contain(
+                    "<!-- Verified-against: QaaS.Framework\\QaaS.Framework.Serialization\\SerializationExtensions.cs -->"
+                )
+            );
+            Assert.That(content, Does.Not.Contain("# Old"));
+        });
+    }
+
+    [Test]
     public void Write_WhenExistingVerificationMarkerHasFrontmatterGap_PreservesIt()
     {
         var docsRoot = CreateTempDocsRoot();
