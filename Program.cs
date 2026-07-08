@@ -66,7 +66,13 @@ internal static class Program
             }
 
             documents.AddRange(hookDocuments);
-            documents.AddRange(new FunctionReferenceRenderer().Render(functionCatalog));
+            var functionDocuments = new FunctionReferenceRenderer()
+                .Render(functionCatalog)
+                .ToList();
+            functionDocuments = FrameworkSerializerSectionPreserver
+                .Apply(options.DocsRoot, functionDocuments)
+                .ToList();
+            documents.AddRange(functionDocuments);
 
             var failures = writer.Write(documents);
             if (failures.Count != 0)
