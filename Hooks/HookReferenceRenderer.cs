@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -7,6 +6,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using NJsonSchema;
 using QaaS.Docs.Generator.Cli;
 using QaaS.Docs.Generator.Functions;
+using QaaS.Docs.Generator.Schema;
 
 namespace QaaS.Docs.Generator.Hooks;
 
@@ -953,178 +953,7 @@ internal sealed class HookReferenceRenderer
 
         public static IReadOnlyList<string> RenderYaml(string propertyName, JsonSchema schema)
         {
-            var lines = new List<string>();
-            RenderYamlCore(lines, 0, propertyName, schema);
-            return lines;
-        }
-
-        private static void RenderYamlCore(
-            ICollection<string> lines,
-            int indentLevel,
-            string propertyName,
-            JsonSchema schema,
-            string? linePrefix = null
-        )
-        {
-            var indent = new string(' ', indentLevel * 2);
-            var propertyLine = $"{indent}{linePrefix}{propertyName}:";
-
-            if (
-                schema.Type.HasFlag(JsonObjectType.Array)
-                && TryGetItemSchema(schema, out var itemSchema)
-            )
-            {
-                if (itemSchema.ActualSchema.Type.HasFlag(JsonObjectType.Object))
-                {
-                    lines.Add(propertyLine);
-                    var children = OrderProperties(itemSchema.ActualSchema).ToList();
-                    if (children.Count == 0)
-                    {
-                        lines.Add($"{indent}  -");
-                        return;
-                    }
-
-                    lines.Add($"{indent}  -");
-                    foreach (var child in children)
-                    {
-                        RenderYamlCore(lines, indentLevel + 2, child.Key, child.Value.ActualSchema);
-                    }
-                }
-                else
-                {
-                    if (schema.MinItems > 0)
-                    {
-                        lines.Add(propertyLine);
-                        lines.Add($"{indent}  - {RenderSampleScalar(itemSchema.ActualSchema)}");
-                    }
-                    else
-                    {
-                        lines.Add($"{indent}{linePrefix}{propertyName}: []");
-                    }
-                }
-
-                return;
-            }
-
-            if (schema.Type.HasFlag(JsonObjectType.Object) && schema.Properties.Count != 0)
-            {
-                lines.Add(propertyLine);
-                var childIndentLevel = indentLevel + (linePrefix is null ? 1 : 2);
-                foreach (var child in OrderProperties(schema))
-                {
-                    RenderYamlCore(lines, childIndentLevel, child.Key, child.Value.ActualSchema);
-                }
-
-                return;
-            }
-
-            lines.Add($"{propertyLine} {RenderSampleScalar(schema)}");
-        }
-
-        private static string RenderSampleScalar(JsonSchema schema)
-        {
-            foreach (var candidate in GetCandidateSchemas(schema))
-            {
-                var enumValue = candidate.Enumeration.FirstOrDefault(value => value is not null);
-                if (enumValue is not null)
-                {
-                    return FormatYamlScalar(enumValue);
-                }
-            }
-
-            if (schema.Default is not null)
-            {
-                return FormatYamlScalar(schema.Default);
-            }
-
-            if (HasType(schema, JsonObjectType.Boolean))
-            {
-                return "True";
-            }
-
-            if (HasType(schema, JsonObjectType.Integer))
-            {
-                return FormatIntegerMinimum(schema, "0");
-            }
-
-            if (HasType(schema, JsonObjectType.Number))
-            {
-                return "1.0";
-            }
-
-            if (HasType(schema, JsonObjectType.Array))
-            {
-                return "[]";
-            }
-
-            if (HasType(schema, JsonObjectType.Object))
-            {
-                return "{}";
-            }
-
-            if (HasType(schema, JsonObjectType.String))
-            {
-                return "'value'";
-            }
-
-            return "'value'";
-        }
-
-        private static bool HasType(JsonSchema schema, JsonObjectType type)
-        {
-            return GetCandidateSchemas(schema).Any(candidate => candidate.Type.HasFlag(type));
-        }
-
-        private static IEnumerable<JsonSchema> GetCandidateSchemas(JsonSchema schema)
-        {
-            yield return schema;
-
-            foreach (var candidate in schema.AnyOf.Concat(schema.OneOf).Concat(schema.AllOf))
-            {
-                yield return candidate.ActualSchema;
-            }
-        }
-
-        private static string FormatMinimum(JsonSchema schema, string fallback)
-        {
-            var minimum = GetCandidateSchemas(schema)
-                .Select(candidate => candidate.Minimum)
-                .FirstOrDefault(value => value is not null);
-            return minimum is null
-                ? fallback
-                : Convert.ToString(minimum, CultureInfo.InvariantCulture) ?? fallback;
-        }
-
-        private static string FormatIntegerMinimum(JsonSchema schema, string fallback)
-        {
-            var minimum = GetCandidateSchemas(schema)
-                .Select(candidate => candidate.Minimum)
-                .FirstOrDefault(value => value is not null);
-            if (minimum is null)
-            {
-                return fallback;
-            }
-
-            return decimal.Ceiling(minimum.Value).ToString("0", CultureInfo.InvariantCulture);
-        }
-
-        private static string FormatYamlScalar(object value)
-        {
-            return value switch
-            {
-                bool boolean => boolean ? "True" : "False",
-                byte or sbyte or short or ushort or int or uint or long or ulong =>
-                    Convert.ToString(value, CultureInfo.InvariantCulture) ?? "1",
-                float or double or decimal => Convert.ToString(value, CultureInfo.InvariantCulture)
-                    ?? "1.0",
-                _ => QuoteYamlString(value.ToString() ?? "value"),
-            };
-        }
-
-        private static string QuoteYamlString(string value)
-        {
-            var escaped = value.Replace("'", "''", StringComparison.Ordinal);
-            return $"'{escaped}'";
+            return SchemaYamlRenderer.Render(propertyName, schema);
         }
 
         private static IEnumerable<KeyValuePair<string, JsonSchemaProperty>> OrderProperties(
