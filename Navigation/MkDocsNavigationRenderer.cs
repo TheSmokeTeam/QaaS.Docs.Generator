@@ -13,17 +13,17 @@ internal sealed class MkDocsNavigationRenderer
 {
     private static readonly HookNavSpec[] HookSpecs =
     [
-        new("hook-assertions", "assertions/index.md", "assertions", "Available Assertions", 6),
-        new("hook-generators", "generators/index.md", "generators", "Available Generators", 6),
-        new("hook-probes", "probes/index.md", "probes", "Available Probes", 6),
-        new("hook-processors", "processors/index.md", "processors", "Available Processors", 6),
+        new("hook-assertions", "assertions/index.md", "assertions", "Available Assertions"),
+        new("hook-generators", "generators/index.md", "generators", "Available Generators"),
+        new("hook-probes", "probes/index.md", "probes", "Available Probes"),
+        new("hook-processors", "processors/index.md", "processors", "Available Processors"),
     ];
 
     private static readonly FunctionNavSpec[] FunctionSpecs =
     [
-        new("runner-functions", "qaas/functions/index.md", 6),
-        new("mocker-functions", "mocker/functions/index.md", 6),
-        new("framework-functions", "framework/functions/index.md", 6),
+        new("runner-functions", "qaas/functions/index.md"),
+        new("mocker-functions", "mocker/functions/index.md"),
+        new("framework-functions", "framework/functions/index.md"),
     ];
 
     private const string AnchorPattern = "\\{#[A-Za-z0-9_-]+\\}|\\{:\\s*#[A-Za-z0-9_-]+\\}";
@@ -69,19 +69,21 @@ internal sealed class MkDocsNavigationRenderer
         {
             var functionGroups = ParseFunctionGroups(docsRoot, functionSpec);
             WriteFunctionSectionPages(docsRoot, functionGroups, check);
+            var indentation = GetMarkedBlockIndentation(expectedContent, functionSpec.Key);
             expectedContent = ReplaceMarkedBlock(
                 expectedContent,
                 functionSpec.Key,
-                RenderFunctionBlock(functionGroups, functionSpec)
+                RenderFunctionBlock(functionGroups, functionSpec, indentation)
             );
         }
 
         foreach (var hookSpec in HookSpecs)
         {
+            var indentation = GetMarkedBlockIndentation(expectedContent, hookSpec.Key);
             expectedContent = ReplaceMarkedBlock(
                 expectedContent,
                 hookSpec.Key,
-                RenderHookBlock(docsRoot, hookSpec)
+                RenderHookBlock(docsRoot, hookSpec, indentation)
             );
         }
 
@@ -112,10 +114,10 @@ internal sealed class MkDocsNavigationRenderer
         File.WriteAllText(mkDocsPath, expectedContent);
     }
 
-    private static string RenderHookBlock(string docsRoot, HookNavSpec spec)
+    private static string RenderHookBlock(string docsRoot, HookNavSpec spec, int indentation)
     {
         var groups = ParseHookGroups(docsRoot, spec);
-        var indent = Indent(spec.Indentation);
+        var indent = Indent(indentation);
         var builder = new StringBuilder();
 
         builder.AppendLine($"{indent}# qaas-docs-generator start: {spec.Key}");
@@ -123,17 +125,17 @@ internal sealed class MkDocsNavigationRenderer
 
         foreach (var group in groups)
         {
-            builder.AppendLine($"{indent}  - {group.Title}:");
+            builder.AppendLine($"{indent}    - {group.Title}:");
 
             foreach (var hook in group.Hooks)
             {
-                builder.AppendLine($"{indent}    - {hook.Title}:");
-                builder.AppendLine($"{indent}      - Overview: {hook.OverviewPath}");
+                builder.AppendLine($"{indent}        - {hook.Title}:");
+                builder.AppendLine($"{indent}            - Overview: {hook.OverviewPath}");
                 builder.AppendLine(
-                    $"{indent}      - Table View: {hook.ConfigurationRoot}/configuration/tableView.md"
+                    $"{indent}            - Table View: {hook.ConfigurationRoot}/configuration/tableView.md"
                 );
                 builder.AppendLine(
-                    $"{indent}      - YAML View: {hook.ConfigurationRoot}/configuration/yamlView.md"
+                    $"{indent}            - YAML View: {hook.ConfigurationRoot}/configuration/yamlView.md"
                 );
             }
         }
@@ -144,10 +146,11 @@ internal sealed class MkDocsNavigationRenderer
 
     private static string RenderFunctionBlock(
         IReadOnlyList<FunctionGroup> groups,
-        FunctionNavSpec spec
+        FunctionNavSpec spec,
+        int indentation
     )
     {
-        var indent = Indent(spec.Indentation);
+        var indent = Indent(indentation);
         var builder = new StringBuilder();
 
         builder.AppendLine($"{indent}# qaas-docs-generator start: {spec.Key}");
@@ -160,7 +163,7 @@ internal sealed class MkDocsNavigationRenderer
             // title, the wrapper page level duplicates the group label. Flatten
             // the page into the group so the nav reads as a single section
             // rather than "Extension Methods / Extension Methods / Overview".
-            var pageIndent = indent + "  ";
+            var pageIndent = indent + "    ";
             var flattenSinglePage =
                 group.Pages.Count == 1
                 && string.Equals(group.Pages[0].Title, group.Title, StringComparison.Ordinal);
@@ -184,13 +187,13 @@ internal sealed class MkDocsNavigationRenderer
                 if (flattenSinglePage)
                 {
                     builder.AppendLine($"{pageIndent}- Overview: {page.RelativePath}");
-                    sectionIndentation = spec.Indentation + 2;
+                    sectionIndentation = indentation + 4;
                 }
                 else
                 {
                     builder.AppendLine($"{pageIndent}- {page.Title}:");
-                    builder.AppendLine($"{pageIndent}  - Overview: {page.RelativePath}");
-                    sectionIndentation = spec.Indentation + 4;
+                    builder.AppendLine($"{pageIndent}    - Overview: {page.RelativePath}");
+                    sectionIndentation = indentation + 8;
                 }
 
                 foreach (var section in page.ParsedPage.Sections)
@@ -238,7 +241,7 @@ internal sealed class MkDocsNavigationRenderer
         }
 
         builder.AppendLine($"{indent}- {sectionTitle}:");
-        builder.AppendLine($"{indent}  - Overview: {sectionPath}");
+        builder.AppendLine($"{indent}    - Overview: {sectionPath}");
 
         foreach (var child in section.Children)
         {
@@ -246,7 +249,7 @@ internal sealed class MkDocsNavigationRenderer
                 builder,
                 page,
                 child,
-                indentation + 2,
+                indentation + 4,
                 ancestors.Append(section.Slug).ToList()
             );
         }
@@ -781,6 +784,24 @@ internal sealed class MkDocsNavigationRenderer
         return Regex.Replace(content, pattern, replacementBlock);
     }
 
+    internal static int GetMarkedBlockIndentation(string content, string key)
+    {
+        var startMarker = $"# qaas-docs-generator start: {key}";
+        var match = Regex.Match(
+            content,
+            $"(?m)^(?<indent> *){Regex.Escape(startMarker)}[ ]*\r?$"
+        );
+
+        if (!match.Success)
+        {
+            throw new InvalidOperationException(
+                $"Could not find the navigation start marker for '{key}' in mkdocs.yml."
+            );
+        }
+
+        return match.Groups["indent"].Length;
+    }
+
     private static IReadOnlyList<string> ReadLines(string path)
     {
         return GeneratedDocumentLineEndings
@@ -838,11 +859,10 @@ internal sealed class MkDocsNavigationRenderer
         string Key,
         string IndexRelativePath,
         string RootPath,
-        string AvailableLabel,
-        int Indentation
+        string AvailableLabel
     );
 
-    private sealed record FunctionNavSpec(string Key, string OverviewRelativePath, int Indentation);
+    private sealed record FunctionNavSpec(string Key, string OverviewRelativePath);
 
     private sealed record HookEntry(string Title, string OverviewPath, string ConfigurationRoot);
 

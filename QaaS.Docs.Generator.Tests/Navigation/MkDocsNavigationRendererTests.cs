@@ -6,6 +6,26 @@ namespace QaaS.Docs.Generator.Tests.Navigation;
 [TestFixture]
 public sealed class MkDocsNavigationRendererTests
 {
+    [TestCase(2)]
+    [TestCase(6)]
+    [TestCase(10)]
+    public void GetMarkedBlockIndentation_WhenNavigationDepthChanges_DerivesCurrentDepth(
+        int indentation
+    )
+    {
+        var indent = new string(' ', indentation);
+        var content =
+            $"nav:\r\n{indent}# qaas-docs-generator start: runner-functions\r\n"
+            + $"{indent}# qaas-docs-generator end: runner-functions\r\n";
+
+        var result = MkDocsNavigationRenderer.GetMarkedBlockIndentation(
+            content,
+            "runner-functions"
+        );
+
+        Assert.That(result, Is.EqualTo(indentation));
+    }
+
     [Test]
     public void Update_WhenWritingFunctionSectionPages_CarriesParentVerificationMarkers()
     {
@@ -92,6 +112,25 @@ public sealed class MkDocsNavigationRendererTests
                         "- Serializer: framework/functions/extension-methods-sections/extension-methods/serializer.md"
                     )
                 );
+                Assert.That(
+                    mkDocsContent,
+                    Does.Contain(
+                        "          # qaas-docs-generator start: runner-functions\r\n"
+                            + "          - Builders:\r\n"
+                            + "              - Assertions:\r\n"
+                            + "                  - Overview: qaas/functions/builders/assertions.md\r\n"
+                    )
+                );
+                Assert.That(
+                    mkDocsContent,
+                    Does.Contain(
+                        "          # qaas-docs-generator start: hook-assertions\r\n"
+                            + "          - Available Assertions:\r\n"
+                            + "              - General:\r\n"
+                            + "                  - Example:\r\n"
+                            + "                      - Overview: assertions/availableAssertions/Example/overview.md\r\n"
+                    )
+                );
             });
 
             var sectionPage = File.ReadAllText(
@@ -151,26 +190,30 @@ public sealed class MkDocsNavigationRendererTests
             """
             nav:
               - Runner:
-                  # qaas-docs-generator start: runner-functions
-                  # qaas-docs-generator end: runner-functions
+                  - Functions:
+                      # qaas-docs-generator start: runner-functions
+                      # qaas-docs-generator end: runner-functions
               - Mocker:
-                  # qaas-docs-generator start: mocker-functions
-                  # qaas-docs-generator end: mocker-functions
+                  - Functions:
+                      # qaas-docs-generator start: mocker-functions
+                      # qaas-docs-generator end: mocker-functions
               - Framework:
-                  # qaas-docs-generator start: framework-functions
-                  # qaas-docs-generator end: framework-functions
-              - Assertions:
-                  # qaas-docs-generator start: hook-assertions
-                  # qaas-docs-generator end: hook-assertions
-              - Generators:
-                  # qaas-docs-generator start: hook-generators
-                  # qaas-docs-generator end: hook-generators
-              - Probes:
-                  # qaas-docs-generator start: hook-probes
-                  # qaas-docs-generator end: hook-probes
-              - Processors:
-                  # qaas-docs-generator start: hook-processors
-                  # qaas-docs-generator end: hook-processors
+                  - Functions:
+                      # qaas-docs-generator start: framework-functions
+                      # qaas-docs-generator end: framework-functions
+              - Hooks:
+                  - Assertions:
+                      # qaas-docs-generator start: hook-assertions
+                      # qaas-docs-generator end: hook-assertions
+                  - Generators:
+                      # qaas-docs-generator start: hook-generators
+                      # qaas-docs-generator end: hook-generators
+                  - Probes:
+                      # qaas-docs-generator start: hook-probes
+                      # qaas-docs-generator end: hook-probes
+                  - Processors:
+                      # qaas-docs-generator start: hook-processors
+                      # qaas-docs-generator end: hook-processors
 
             """
         );
