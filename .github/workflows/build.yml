@@ -24,3 +24,7 @@ jobs:
       - name: Build generator
         shell: pwsh
         run: dotnet build .\QaaS.Docs.Generator.csproj -c Release
+
+      - name: Test generator
+        shell: pwsh
+        run: dotnet test .\QaaS.Docs.Generator.Tests\QaaS.Docs.Generator.Tests.csproj -c Release
