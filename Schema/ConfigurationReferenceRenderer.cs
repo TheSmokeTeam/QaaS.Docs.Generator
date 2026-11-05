@@ -227,7 +227,7 @@ internal sealed class ConfigurationReferenceRenderer
         foreach (var row in rows)
         {
             builder.AppendLine(
-                $"| `{row.Path}` | `{row.Type}` | {row.Required} | {FormatDefault(row.DefaultValue)} | {Escape(row.Description)} |"
+                $"| `{row.Path}` | `{row.Type}` | {row.Required} | {FormatDefault(row.DefaultValue)} | {Escape(row.Description.Replace("*", "&#42;", StringComparison.Ordinal))} |"
             );
         }
 

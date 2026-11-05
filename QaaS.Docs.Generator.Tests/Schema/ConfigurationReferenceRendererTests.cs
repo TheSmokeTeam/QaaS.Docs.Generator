@@ -8,6 +8,42 @@ namespace QaaS.Docs.Generator.Tests.Schema;
 public sealed class ConfigurationReferenceRendererTests
 {
     [Test]
+    public async Task RenderRunner_WhenDescriptionContainsLiteralAsterisks_EmitsEntities()
+    {
+        var schema = await JsonSchema.FromJsonAsync(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "Reporters": {
+                  "type": "object",
+                  "properties": {
+                    "CertificateStore": {
+                      "type": "string",
+                      "description": "Store/key repository such as *USER or *SYSTEM. Wildcards (* and ?) are supported."
+                    }
+                  }
+                }
+              }
+            }
+            """
+        );
+        var familyDocs = new FamilySchemaDocs(
+            "runner-family",
+            schema,
+            [new SchemaSection("Reporters", "Reporters", "reporters", "Reporters", "Reporters.", [])]
+        );
+        var table = new ConfigurationReferenceRenderer().RenderRunner(familyDocs).Single(document =>
+            document.RelativePath.EndsWith("configurations/tableView.md", StringComparison.Ordinal)
+        );
+
+        Assert.That(
+            table.Content,
+            Does.Contain("Store/key repository such as &#42;USER or &#42;SYSTEM. Wildcards (&#42; and ?) are supported.")
+        );
+    }
+
+    [Test]
     public async Task RenderRunner_WhenSectionIsNew_EmitsSchemaVerificationMarkers()
     {
         var schema = await JsonSchema.FromJsonAsync(
